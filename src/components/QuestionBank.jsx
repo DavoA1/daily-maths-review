@@ -3,6 +3,15 @@ import { useAuth } from '../lib/auth.jsx'
 import { supabase } from '../lib/supabase.js'
 import { seedAll } from '../lib/seed.js'
 
+function downloadCSV(filename, rows, headers) {
+  const escape = v => { const s = String(v??'').replace(/"/g,'""'); return s.includes(',')||s.includes('\n')||s.includes('"') ? `"${s}"` : s }
+  const csv = [headers,...rows].map(r => r.map(escape).join(',')).join('\n')
+  const blob = new Blob([csv],{type:'text/csv'})
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a'); a.href=url; a.download=filename; a.click()
+  URL.revokeObjectURL(url)
+}
+
 const QTYPE_LABELS = { std:'Standard', mc:'Multiple Choice', tf:'True/False', fill:'Fill in Blank', worded:'Word Problem', error:'Error Analysis', show:'Show Working' }
 const TIER_CLS = ['','t1','t2','t3','t4']
 const TIER_FULL = ['','Foundation','Core','Extension','Challenge']
@@ -103,12 +112,20 @@ export default function QuestionBank() {
             Victorian Curriculum Yr 5–12 · <span style={{ color: 'var(--acc)' }}>{filteredSkills.length} skills · {totalQs} total questions</span>
           </p>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {!seedDone && (
             <button className="btn btn-primary" onClick={handleSeed} disabled={seeding}>
               {seeding ? '⏳ Seeding...' : '🌱 Seed Question Bank'}
             </button>
           )}
+          <button className="btn btn-secondary btn-sm" onClick={() => {
+            const headers = ['Year','Strand','Topic','Skill','VC Code','Tier','Type','Question','Answer']
+            const rows = []
+            skills.forEach(sk => {
+              getQs(sk.id).forEach(q => rows.push([sk.year_level,sk.strand,sk.topic,sk.skill_name,sk.vc_code||'',q.tier,q.question_type||'std',q.question_text,q.answer_text]))
+            })
+            downloadCSV(`question-bank-${new Date().toISOString().split('T')[0]}.csv`, rows, headers)
+          }}>📥 Export to CSV</button>
           <button className="btn btn-secondary btn-sm" onClick={() => setShowAddSkill(true)}>+ Add Skill</button>
         </div>
       </div>
@@ -270,7 +287,16 @@ function AddQuestionRow({ skillId, vcCode, onAdded, showToast }) {
   const { user } = useAuth()
   const [open, setOpen] = useState(false)
   const [data, setData] = useState({ tier: 2, question_type: 'std', question_text: '', answer_text: '', vc_code: vcCode || '' })
-  const QTYPE_LABELS = { std:'Standard', mc:'Multiple Choice', tf:'True/False', fill:'Fill in Blank', worded:'Word Problem', error:'Error Analysis', show:'Show Working' }
+  function downloadCSV(filename, rows, headers) {
+  const escape = v => { const s = String(v??'').replace(/"/g,'""'); return s.includes(',')||s.includes('\n')||s.includes('"') ? `"${s}"` : s }
+  const csv = [headers,...rows].map(r => r.map(escape).join(',')).join('\n')
+  const blob = new Blob([csv],{type:'text/csv'})
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a'); a.href=url; a.download=filename; a.click()
+  URL.revokeObjectURL(url)
+}
+
+const QTYPE_LABELS = { std:'Standard', mc:'Multiple Choice', tf:'True/False', fill:'Fill in Blank', worded:'Word Problem', error:'Error Analysis', show:'Show Working' }
 
   async function save() {
     if (!data.question_text || !data.answer_text) return

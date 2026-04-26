@@ -2,13 +2,20 @@ import { useSettings } from '../lib/settings.jsx'
 import { useState } from 'react'
 import { seedAll } from '../lib/seed.js'
 import { useAuth } from '../lib/auth.jsx'
+import { supabase } from '../lib/supabase.js'
 
 export default function Settings() {
   const { settings, setSettings, THEMES, FONT_SIZES, FONTS } = useSettings()
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const [saved, setSaved] = useState(false)
   const [seeding, setSeeding] = useState(false)
   const [seedMsg, setSeedMsg] = useState('')
+  const [profileData, setProfileData] = useState({ name: profile?.name || '' })
+  const [emailData, setEmailData] = useState({ email: user?.email || '' })
+  const [pwData, setPwData] = useState({ password: '', confirm: '' })
+  const [profileMsg, setProfileMsg] = useState('')
+  const [emailMsg, setEmailMsg] = useState('')
+  const [pwMsg, setPwMsg] = useState('')
 
   function update(key, val) {
     setSettings(s => ({ ...s, [key]: val }))
@@ -19,36 +26,97 @@ export default function Settings() {
     setSeeding(true); setSeedMsg('Seeding curriculum questions...')
     try {
       const result = await seedAll()
-      setSeedMsg(`✓ Seeded ${result.skillCount} skills and ${result.qCount} questions into the database.`)
-    } catch(e) {
-      setSeedMsg('Error: ' + e.message)
-    }
+      setSeedMsg(`✓ Seeded ${result.skillCount} skills and ${result.qCount} questions.`)
+    } catch(e) { setSeedMsg('Error: ' + e.message) }
     setSeeding(false)
   }
+
+  async function saveProfile() {
+    const { error } = await supabase.from('profiles').update({ name: profileData.name }).eq('id', user.id)
+    setProfileMsg(error ? 'Error: ' + error.message : '✓ Name updated')
+    setTimeout(() => setProfileMsg(''), 3000)
+  }
+
+  async function saveEmail() {
+    if (!emailData.email.includes('@')) { setEmailMsg('Enter a valid email'); return }
+    const { error } = await supabase.auth.updateUser({ email: emailData.email })
+    setEmailMsg(error ? 'Error: ' + error.message : '✓ Confirmation sent to new email address')
+    setTimeout(() => setEmailMsg(''), 5000)
+  }
+
+  async function savePassword() {
+    if (pwData.password.length < 6) { setPwMsg('Password must be at least 6 characters'); return }
+    if (pwData.password !== pwData.confirm) { setPwMsg('Passwords do not match'); return }
+    const { error } = await supabase.auth.updateUser({ password: pwData.password })
+    setPwMsg(error ? 'Error: ' + error.message : '✓ Password updated')
+    setPwData({ password: '', confirm: '' })
+    setTimeout(() => setPwMsg(''), 3000)
+  }
+
+  const msgStyle = (msg) => ({ marginTop: 8, fontSize: 12, color: msg.startsWith('✓') ? 'var(--grn)' : 'var(--red)' })
 
   return (
     <div className="page-wrap">
       <div className="page-title">Settings</div>
-      <p className="page-sub">Customise your classroom display and app preferences.</p>
+      <p className="page-sub">Customise your classroom display and manage your account.</p>
 
       <div style={{ display:'flex', flexDirection:'column', gap:20, maxWidth:720 }}>
 
-        {/* Seed question bank */}
+        {/* Profile */}
+        <div className="card card-pad">
+          <div style={{ fontFamily:'var(--font-display)', fontWeight:700, fontSize:15, marginBottom:14 }}>👤 Your Profile</div>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr auto', gap:10, alignItems:'flex-end', marginBottom:12 }}>
+            <div className="field" style={{ margin:0 }}>
+              <label>Display name</label>
+              <input className="input" value={profileData.name} onChange={e => setProfileData(d => ({ ...d, name: e.target.value }))} placeholder="Ms Johnson" />
+            </div>
+            <button className="btn btn-primary btn-sm" onClick={saveProfile} style={{ marginBottom:1 }}>Save name</button>
+          </div>
+          {profileMsg && <div style={msgStyle(profileMsg)}>{profileMsg}</div>}
+
+          <div style={{ height:1, background:'var(--b1)', margin:'14px 0' }} />
+
+          <div style={{ display:'grid', gridTemplateColumns:'1fr auto', gap:10, alignItems:'flex-end', marginBottom:12 }}>
+            <div className="field" style={{ margin:0 }}>
+              <label>Email address</label>
+              <input className="input" type="email" value={emailData.email} onChange={e => setEmailData({ email: e.target.value })} />
+            </div>
+            <button className="btn btn-secondary btn-sm" onClick={saveEmail} style={{ marginBottom:1 }}>Update email</button>
+          </div>
+          {emailMsg && <div style={msgStyle(emailMsg)}>{emailMsg}</div>}
+
+          <div style={{ height:1, background:'var(--b1)', margin:'14px 0' }} />
+
+          <div style={{ fontWeight:600, fontSize:13, marginBottom:10 }}>Change password</div>
+          <div className="grid-2" style={{ gap:10, marginBottom:10 }}>
+            <div className="field" style={{ margin:0 }}>
+              <label>New password</label>
+              <input className="input" type="password" value={pwData.password} onChange={e => setPwData(d => ({ ...d, password: e.target.value }))} placeholder="Min 6 characters" />
+            </div>
+            <div className="field" style={{ margin:0 }}>
+              <label>Confirm password</label>
+              <input className="input" type="password" value={pwData.confirm} onChange={e => setPwData(d => ({ ...d, confirm: e.target.value }))} placeholder="Repeat password" />
+            </div>
+          </div>
+          <button className="btn btn-secondary btn-sm" onClick={savePassword}>Update password</button>
+          {pwMsg && <div style={msgStyle(pwMsg)}>{pwMsg}</div>}
+        </div>
+
+        {/* Seed */}
         <div className="card card-pad" style={{ border:'1px solid rgba(240,228,74,.2)', background:'rgba(240,228,74,.03)' }}>
           <div style={{ fontFamily:'var(--font-display)', fontWeight:700, fontSize:15, marginBottom:6 }}>🌱 Question Bank Setup</div>
           <p style={{ fontSize:12, color:'var(--td)', marginBottom:14, lineHeight:1.6 }}>
-            First time using the app? Click this button to load all Victorian Curriculum questions into the database.
-            This only needs to be done <strong>once</strong> and takes about 30 seconds.
+            Load all Victorian Curriculum questions into the database. Run this once when you first set up, or again after curriculum updates.
           </p>
           <button className="btn btn-primary" onClick={handleSeed} disabled={seeding}>
-            {seeding ? '⏳ Seeding...' : '🌱 Seed Question Bank'}
+            {seeding ? '⏳ Seeding...' : '🌱 Seed / Re-seed Question Bank'}
           </button>
-          {seedMsg && <div style={{ marginTop:10, fontSize:12, color:'var(--grn)', lineHeight:1.6 }}>{seedMsg}</div>}
+          {seedMsg && <div style={{ marginTop:10, fontSize:12, color:'var(--grn)' }}>{seedMsg}</div>}
         </div>
 
         {/* Theme */}
         <div className="card card-pad">
-          <div style={{ fontFamily:'var(--font-display)', fontWeight:700, fontSize:15, marginBottom:14 }}>Presentation Theme</div>
+          <div style={{ fontFamily:'var(--font-display)', fontWeight:700, fontSize:15, marginBottom:14 }}>🎨 Presentation Theme</div>
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))', gap:10 }}>
             {Object.entries(THEMES).map(([key, t]) => (
               <button key={key} onClick={() => update('theme', key)} style={{
@@ -57,7 +125,7 @@ export default function Settings() {
                 boxShadow:settings.theme===key?`0 0 0 3px rgba(240,228,74,.15)`:'none'
               }}>
                 <div style={{ display:'flex', gap:5, marginBottom:8 }}>
-                  {[t.accent,t.blue,t.red,t.green].map((c,i) => <div key={i} style={{ width:12, height:12, borderRadius:'50%', background:c }} />)}
+                  {[t.accent,t.blue,t.red,t.green].map((c,i) => <div key={i} style={{ width:12,height:12,borderRadius:'50%',background:c }} />)}
                 </div>
                 <div style={{ color:t.text, fontFamily:'var(--font-display)', fontSize:13, fontWeight:700 }}>{t.name}</div>
                 {settings.theme===key && <div style={{ color:t.accent, fontSize:10, marginTop:2 }}>Active ✓</div>}
@@ -68,7 +136,7 @@ export default function Settings() {
 
         {/* Font size */}
         <div className="card card-pad">
-          <div style={{ fontFamily:'var(--font-display)', fontWeight:700, fontSize:15, marginBottom:14 }}>Text Size</div>
+          <div style={{ fontFamily:'var(--font-display)', fontWeight:700, fontSize:15, marginBottom:14 }}>📏 Text Size</div>
           <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
             {Object.entries(FONT_SIZES).map(([key, fs]) => (
               <button key={key} onClick={() => update('fontSize', key)} style={{
@@ -85,19 +153,19 @@ export default function Settings() {
 
         {/* Font */}
         <div className="card card-pad">
-          <div style={{ fontFamily:'var(--font-display)', fontWeight:700, fontSize:15, marginBottom:14 }}>Font Style</div>
+          <div style={{ fontFamily:'var(--font-display)', fontWeight:700, fontSize:15, marginBottom:14 }}>🔤 Font Style</div>
           <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
             {[
-              { key:'default', label:'Default', sample:'The quick brown fox' },
-              { key:'dyslexia', label:'Dyslexia-friendly (OpenDyslexic)', sample:'The quick brown fox' },
-              { key:'serif', label:'Serif', sample:'The quick brown fox' },
+              { key:'default', label:'Default (Figtree)', sample:'Aa Bb 3x + 5 = 14' },
+              { key:'dyslexia', label:'Dyslexia-friendly', sample:'Aa Bb 3x + 5 = 14' },
+              { key:'serif', label:'Serif', sample:'Aa Bb 3x + 5 = 14' },
             ].map(f => (
               <button key={f.key} onClick={() => update('font', f.key)} style={{
                 padding:'12px 16px', borderRadius:'var(--rs)', border:`2px solid ${settings.font===f.key?'var(--acc)':'var(--b2)'}`,
                 background:settings.font===f.key?'rgba(240,228,74,.1)':'var(--s2)', cursor:'pointer', textAlign:'left', transition:'all .15s'
               }}>
                 <div style={{ color:settings.font===f.key?'var(--acc)':'var(--tx)', fontWeight:600, fontSize:12, marginBottom:4 }}>{f.label}</div>
-                <div style={{ color:'var(--tm)', fontSize:12 }}>{f.sample}</div>
+                <div style={{ color:'var(--tm)', fontSize:13 }}>{f.sample}</div>
               </button>
             ))}
           </div>
@@ -105,8 +173,8 @@ export default function Settings() {
 
         {/* Accent colour */}
         <div className="card card-pad">
-          <div style={{ fontFamily:'var(--font-display)', fontWeight:700, fontSize:15, marginBottom:6 }}>Custom Accent Colour</div>
-          <p style={{ color:'var(--tm)', fontSize:12, marginBottom:14 }}>Override the highlight colour for headings and key elements.</p>
+          <div style={{ fontFamily:'var(--font-display)', fontWeight:700, fontSize:15, marginBottom:6 }}>🎯 Custom Accent Colour</div>
+          <p style={{ color:'var(--tm)', fontSize:12, marginBottom:14 }}>Override the highlight colour for headings and key elements on all screens.</p>
           <div style={{ display:'flex', gap:10, alignItems:'center', flexWrap:'wrap' }}>
             {['#f0e44a','#4ac8f0','#4af0a0','#f04a6b','#a04af0','#f0944a','#ffffff'].map(c => (
               <button key={c} onClick={() => update('accentOverride', c)} style={{
@@ -117,16 +185,16 @@ export default function Settings() {
             ))}
             <input type="color" value={settings.accentOverride||'#f0e44a'}
               onChange={e => update('accentOverride', e.target.value)}
-              style={{ width:32, height:32, borderRadius:4, border:'1px solid var(--b2)', cursor:'pointer', background:'none' }} />
+              style={{ width:32, height:32, borderRadius:4, border:'1px solid var(--b2)', cursor:'pointer' }} />
             {settings.accentOverride && (
-              <button className="btn btn-ghost btn-sm" onClick={() => update('accentOverride', null)}>Reset to theme default</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => update('accentOverride', null)}>Reset</button>
             )}
           </div>
         </div>
 
         {/* Presentation defaults */}
         <div className="card card-pad">
-          <div style={{ fontFamily:'var(--font-display)', fontWeight:700, fontSize:15, marginBottom:14 }}>Presentation Defaults</div>
+          <div style={{ fontFamily:'var(--font-display)', fontWeight:700, fontSize:15, marginBottom:14 }}>⏱ Presentation Defaults</div>
           <div className="grid-2">
             <div className="field" style={{ margin:0 }}>
               <label>Default slide timer</label>
@@ -143,12 +211,11 @@ export default function Settings() {
           </div>
         </div>
 
-        {/* Class codes */}
+        {/* Homework info */}
         <div className="card card-pad">
-          <div style={{ fontFamily:'var(--font-display)', fontWeight:700, fontSize:15, marginBottom:6 }}>Homework Portal</div>
+          <div style={{ fontFamily:'var(--font-display)', fontWeight:700, fontSize:15, marginBottom:6 }}>📱 Homework Portal</div>
           <p style={{ fontSize:12, color:'var(--td)', lineHeight:1.6 }}>
-            Students access the homework portal at <strong style={{ color:'var(--acc)' }}>{window.location.origin}/homework</strong>
-            {' '}using their class code. Class codes are shown on the Dashboard next to each class.
+            Students access homework at <strong style={{ color:'var(--acc)' }}>{window.location.origin}/homework</strong> using their class code shown on the Dashboard.
           </p>
         </div>
 
