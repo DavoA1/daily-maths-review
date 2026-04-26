@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useAuth } from '../lib/auth.jsx'
+import { useAuth } from '../lib/auth.jsx'\'
 import { useSettings } from '../lib/settings.jsx'
 import { supabase } from '../lib/supabase.js'
 import { getDueConcepts, getUpcomingSkills, getRetrievalGaps } from '../lib/spacedRep.js'
