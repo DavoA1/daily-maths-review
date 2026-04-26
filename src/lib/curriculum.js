@@ -715,3 +715,81 @@ export const FOUNDATIONAL = [
     ]
   },
 ]
+
+// ══════════════════════════════════════════════════════════════
+// DIAGRAM-BASED & RESEARCH-BACKED QUESTION EXTENSIONS
+// Based on: retrieval practice, interleaving, elaborative
+// interrogation, concrete-pictorial-abstract, always/sometimes/never
+// ══════════════════════════════════════════════════════════════
+
+export const DIAGRAM_QUESTIONS = [
+  // ── GEOMETRY — coordinate diagrams ──
+  { skillMatch: 'Gradient and y-intercept', extraQ: [
+    { tier: 2, type: 'diagram', vc: 'VC2M9A03', q: 'A line passes through the points marked on this grid:\n\n  y\n  6|        ✦ (3,6)\n  4|\n  2|  ✦ (1,2)\n  0+----------x\n\nFind the gradient and write the equation of the line.', a: 'Gradient = (6-2)/(3-1) = 2; y-intercept = 0; equation: y = 2x' },
+    { tier: 3, type: 'diagram', vc: 'VC2M9A03', q: 'The diagram shows two lines:\n  Line A passes through (0,4) and (2,0)\n  Line B passes through (0,-1) and (2,3)\n\nAre these lines perpendicular? Show working.', a: 'Line A gradient = -2; Line B gradient = 2; product = -4 ≠ -1; NOT perpendicular' },
+  ]},
+  // ── PYTHAGORAS — visual ──
+  { skillMatch: 'Finding missing sides and applications', extraQ: [
+    { tier: 2, type: 'diagram', vc: 'VC2M9M01', q: 'A right triangle is shown:\n\n      /|\n     / |\n  c /  | 12\n   /   |\n  /____|\n    5\n\nFind the length of c.', a: 'c = sqrt(25 + 144) = sqrt(169) = 13' },
+    { tier: 3, type: 'diagram', vc: 'VC2M9M01', q: 'A ladder leans against a wall:\n\n  |\\  \n  |  \\\n7m|    \\ ladder\n  |     \\\n  |______\\\n    2.5m\n\nHow long is the ladder? (2dp)', a: 'ladder = sqrt(49 + 6.25) = sqrt(55.25) = 7.43m' },
+  ]},
+  // ── TRIGONOMETRY ──
+  { skillMatch: 'Finding sides and angles using trig ratios', extraQ: [
+    { tier: 2, type: 'diagram', vc: 'VC2M9M02', q: 'In the right triangle below:\n\n       /|\n      / |\n 10  /  | opp\n    /   |\n   / 35°|\n  /_____|   \n\nFind the opposite side. (2dp)', a: 'opp = 10 × sin(35°) = 10 × 0.574 = 5.74' },
+    { tier: 3, type: 'diagram', vc: 'VC2M9M02', q: 'A surveyor stands 40m from a building and measures the angle of elevation to the top as 28°:\n\n     *  ← top of building\n    /|\n   / |\n  /28°|  h\n /___|\n  40m\n\nFind the height h. (2dp)', a: 'h = 40 × tan(28°) = 40 × 0.532 = 21.28m' },
+  ]},
+  // ── PARABOLAS ──
+  { skillMatch: 'Sketching and interpreting parabolas', extraQ: [
+    { tier: 2, type: 'diagram', vc: 'VC2M9A06', q: 'The graph below shows a parabola:\n\n  y\n  8|    ✦ (vertex)\n  6|\n  4|\n  2|\n  0+--+--+--+--x\n -2  0  2  4\n  |  x-ints at x=-1 and x=3\n\nWrite the equation in factored form.', a: 'y = a(x+1)(x-3); vertex at x=1, sub (1,8): 8=a(2)(-2)=-4a; a=-2; y = -2(x+1)(x-3)' },
+    { tier: 3, type: 'diagram', vc: 'VC2M9A06', q: 'Match each graph feature to its value for y = 2(x-3)² - 8:\n\n  Feature        | Value\n  Vertex         | ?\n  Axis of sym.   | ?\n  y-intercept    | ?\n  Opens          | ?\n  x-intercepts   | ?', a: 'Vertex: (3,-8); Axis: x=3; y-int: 2(9)-8=10, (0,10); Opens: up; x-ints: 2(x-3)²=8; (x-3)²=4; x=1 or x=5' },
+  ]},
+  // ── CIRCLE GEOMETRY ──
+  { skillMatch: 'Circle properties and chord theorems', extraQ: [
+    { tier: 2, type: 'diagram', vc: 'VC2M9SP03', q: 'In the diagram, O is the centre of a circle with radius 10cm. A chord PQ is drawn 6cm from the centre:\n\n      P\n     /|\n    / |\n   /  | 6cm\n  / O |\n  \\   |\n   \\  |\n    \\ |\n     \\|\n      Q\n\nFind the length of chord PQ.', a: 'Half-chord = sqrt(100-36) = sqrt(64) = 8; PQ = 16cm' },
+    { tier: 3, type: 'diagram', vc: 'VC2M9SP03', q: 'In the circle, angle AOB = 110° where O is the centre:\n\n      A\n     /\n    / 110°\n   O\n    \\\n     \\\n      B\n\nIf C is a point on the major arc AB, find angle ACB.', a: 'Angle at circumference = half central angle = 55°' },
+  ]},
+]
+
+// ── REASONING & RESEARCH-BACKED QUESTION TYPES ──
+// Always/Sometimes/Never, Convince Me, Odd One Out,
+// Elaborative Interrogation, Worked Examples
+
+export const REASONING_QUESTIONS = [
+  // Always/Sometimes/Never — builds conceptual understanding
+  { tier: 3, type: 'asn', vc: 'VC2M9N01', skillMatch: 'Index laws', q: 'Always, Sometimes, or Never? State which and give an example or counter-example.\n\n"A number raised to a negative power gives a negative result."', a: 'NEVER true. e.g. 2⁻³ = 1/8 (positive). Negative index means reciprocal, not negative result.' },
+  { tier: 3, type: 'asn', vc: 'VC2M9A06', skillMatch: 'Sketching and interpreting parabolas', q: 'Always, Sometimes, or Never?\n\n"A parabola y = ax² + bx + c has two x-intercepts."', a: 'SOMETIMES — depends on discriminant. Two x-ints if b²-4ac > 0; one if = 0; none if < 0.' },
+  { tier: 3, type: 'asn', vc: 'VC2M9M01', skillMatch: 'Finding missing sides', q: 'Always, Sometimes, or Never?\n\n"In a right triangle, the hypotenuse is the longest side."', a: 'ALWAYS — the side opposite the largest angle (90°) is always the longest.' },
+  { tier: 3, type: 'asn', vc: 'VC2M9ST02', skillMatch: 'Probability', q: 'Always, Sometimes, or Never?\n\n"If two events are mutually exclusive, they are also independent."', a: 'NEVER (unless P = 0). If mutually exclusive, P(A∩B)=0, but independence requires P(A∩B)=P(A)×P(B). Contradiction.' },
+
+  // Convince Me — justification and proof
+  { tier: 4, type: 'convince', vc: 'VC2M9A04', skillMatch: 'Solving by substitution and elimination', q: 'Convince Me:\n\nSam says: "The system x + y = 5 and 2x + 2y = 10 has infinitely many solutions."\n\nIs Sam correct? Explain fully.', a: 'Correct. The second equation is exactly double the first — they are the same line. Every point on x + y = 5 is a solution.' },
+  { tier: 4, type: 'convince', vc: 'VC2M9N01', skillMatch: 'Index laws', q: 'Convince Me:\n\n"Any non-zero number raised to the power of 0 equals 1."\n\nProve this using index laws.', a: 'aⁿ ÷ aⁿ = a⁰ (subtracting indices); also aⁿ ÷ aⁿ = 1 (any number ÷ itself). Therefore a⁰ = 1.' },
+  { tier: 4, type: 'convince', vc: 'VC2M9M05', skillMatch: 'Simple and compound interest', q: 'Convince Me:\n\nCompound interest always gives more than simple interest for the same principal, rate and time (when n > 1).\n\nProve algebraically for n = 2.', a: 'CI = P(1+r)² = P+2Pr+Pr²; SI = P+2Pr; CI-SI = Pr² > 0 since P>0, r>0. ✓' },
+
+  // Odd One Out — pattern recognition
+  { tier: 2, type: 'oddoneout', vc: 'VC2M9A06', skillMatch: 'Sketching and interpreting parabolas', q: 'Odd One Out — which does not belong? Explain.\n\n  A) y = x²\n  B) y = -x²\n  C) y = 2x² + 1\n  D) y = x + 3', a: 'D) y = x + 3 is the odd one out — it is a straight line, not a parabola. A, B and C are all quadratic functions.' },
+  { tier: 2, type: 'oddoneout', vc: 'VC2M9M01', skillMatch: 'Finding missing sides', q: 'Odd One Out — which triangle is NOT right-angled? Explain.\n\n  A) sides 3, 4, 5\n  B) sides 6, 8, 10\n  C) sides 5, 12, 13\n  D) sides 4, 5, 7', a: 'D) 4, 5, 7: 16 + 25 = 41 ≠ 49. Not a Pythagorean triple. All others satisfy a² + b² = c².' },
+
+  // Elaborative Interrogation — "Why does this work?"
+  { tier: 3, type: 'elaborate', vc: 'VC2M9A03', skillMatch: 'Gradient and y-intercept', q: 'Elaborative Interrogation:\n\nWhy do parallel lines have the same gradient?\n\nExplain in your own words using the definition of gradient.', a: 'Gradient measures steepness (rise/run). If two lines never meet (parallel), they must rise at exactly the same rate. If one rose faster, it would eventually overtake the other and they would intersect.' },
+  { tier: 3, type: 'elaborate', vc: 'VC2M9ST01', skillMatch: 'Comparing data sets', q: 'Elaborative Interrogation:\n\nWhy is the median more resistant to outliers than the mean?\n\nExplain with an example.', a: 'Mean uses every value in its calculation, so extreme values pull it toward them. Median is the middle value — removing one extreme from a list of 7 does not change the middle much. e.g. 1,2,3,4,5,6,100: mean=17.3 but median=4.' },
+
+  // Worked Example Analysis — spot the method, identify the step
+  { tier: 2, type: 'worked', vc: 'VC2M9A01', skillMatch: 'Equations with variables on both sides', q: 'Here is a worked solution. Identify what was done at each step:\n\n  3x + 5 = x + 13    ... Step 1\n  2x + 5 = 13         ... Step 2\n  2x = 8              ... Step 3\n  x = 4               ... Step 4\n\nName the operation used in steps 2, 3 and 4.', a: 'Step 2: Subtracted x from both sides. Step 3: Subtracted 5 from both sides. Step 4: Divided both sides by 2.' },
+  { tier: 3, type: 'worked', vc: 'VC2M9A05f', skillMatch: 'Factorising trinomials', q: 'Here is a worked solution. Find the error:\n\n  Factorise x² + 7x + 12\n  Need two numbers that ADD to 12 and MULTIPLY to 7\n  → 3 and 4 work: 3 × 4 = 12, 3 + 4 = 7\n  Answer: (x + 3)(x + 4)\n\nIs the answer correct? Was the method correct?', a: 'The ANSWER is correct but the METHOD statement was wrong. We need two numbers that ADD to 7 (the coefficient of x) and MULTIPLY to 12 (the constant). The student mixed up add and multiply in the description but still got the right answer.' },
+]
+
+// Add diagram and reasoning questions to relevant skills on load
+export function enrichCurriculum(curriculum) {
+  return curriculum.map(skill => {
+    const extraDiagrams = DIAGRAM_QUESTIONS
+      .filter(d => skill.skill === d.skillMatch || skill.skill.includes(d.skillMatch))
+      .flatMap(d => d.extraQ)
+
+    const extraReasoning = REASONING_QUESTIONS
+      .filter(r => skill.skill === r.skillMatch || skill.skill.includes(r.skillMatch))
+
+    if (!extraDiagrams.length && !extraReasoning.length) return skill
+    return { ...skill, questions: [...skill.questions, ...extraDiagrams, ...extraReasoning] }
+  })
+}
