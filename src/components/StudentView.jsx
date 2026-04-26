@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
 
 const channel = new BroadcastChannel('dmr_student_view')
-const TIER_BG = ['','rgba(74,240,160,.1)','rgba(74,200,240,.1)','rgba(240,148,74,.1)','rgba(240,74,107,.1)']
-const TIER_CLS = ['','t1','t2','t3','t4']
+
+const TIER_COL = ['','var(--grn)','var(--blu)','var(--org)','var(--red)']
+const TIER_BG  = ['','rgba(74,240,160,.1)','rgba(74,200,240,.1)','rgba(240,148,74,.1)','rgba(240,74,107,.1)']
 
 export default function StudentView() {
-  const [state, setState] = useState(null) // null = waiting
+  const [data, setData] = useState(null)
   const [closed, setClosed] = useState(false)
   const bombRef = useRef(null)
   const [bombLeft, setBombLeft] = useState(90)
@@ -16,7 +17,7 @@ export default function StudentView() {
       if (d.type === 'close') { setClosed(true); clearInterval(bombRef.current); return }
       if (d.type !== 'slide') return
       clearInterval(bombRef.current)
-      setState(d)
+      setData(d)
       if (d.isBomb) {
         setBombLeft(d.btbSecs || 90)
         bombRef.current = setInterval(() => setBombLeft(b => b > 0 ? b - 1 : 0), 1000)
@@ -25,15 +26,13 @@ export default function StudentView() {
     return () => { clearInterval(bombRef.current); channel.close() }
   }, [])
 
-  const fontBase = getComputedStyle(document.documentElement).getPropertyValue('--fs-base') || '14px'
-
   if (closed) return (
     <div style={{ display:'flex',alignItems:'center',justifyContent:'center',minHeight:'100vh',background:'var(--bg)',fontFamily:'var(--font-display)',color:'var(--tm)',fontSize:20 }}>
-      Review session ended.
+      Session ended.
     </div>
   )
 
-  if (!state) return (
+  if (!data) return (
     <div style={{ display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',minHeight:'100vh',background:'var(--bg)',gap:18 }}>
       <div style={{ width:60,height:60,background:'var(--acc)',clipPath:'polygon(50% 0%,100% 75%,80% 100%,20% 100%,0% 75%)',animation:'pulse 2s ease-in-out infinite' }} />
       <h2 style={{ fontFamily:'var(--font-display)',fontSize:22,fontWeight:800,color:'var(--tm)' }}>Waiting for teacher...</h2>
@@ -49,8 +48,8 @@ export default function StudentView() {
           <div style={{ width:12,height:12,background:'var(--acc)',clipPath:'polygon(50% 0%,100% 75%,80% 100%,20% 100%,0% 75%)' }} />
           Daily Maths Review
         </div>
-        <div style={{ fontFamily:'var(--font-mono)',fontSize:13,color:'var(--tm)' }}>
-          {state.isBomb ? '💣 Beat the Bomb' : `Slide ${state.slideNum} / ${state.total}`}
+        <div style={{ fontFamily:'var(--font-mono)',fontSize:12,color:'var(--tm)' }}>
+          {data.isBomb ? '💣 Beat the Bomb' : `Slide ${data.slideNum}/${data.slideTotal} · Q${data.qNum}/${data.qTotal}`}
         </div>
         <div style={{ fontSize:12,color:'var(--tm)' }}>
           {new Date().toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long'})}
@@ -58,83 +57,104 @@ export default function StudentView() {
       </div>
 
       {/* Content */}
-      <div style={{ flex:1,overflow:'hidden',padding:'10px 20px 8px',display:'flex',flexDirection:'column',alignItems:'center' }}>
-        {state.isBomb ? <SVBomb state={state} bombLeft={bombLeft} />
-          : state.isWC ? <SVWholeClass state={state} />
-          : <SVTiered state={state} />}
+      <div style={{ flex:1,overflow:'hidden',padding:'14px 24px 10px',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center' }}>
+        {data.isBomb ? <SVBomb data={data} bombLeft={bombLeft} />
+         : <SVSingleQ data={data} />}
       </div>
     </div>
   )
 }
 
-function SVTiered({ state }) {
-  return (
-    <div style={{ width:'100%',maxWidth:1280,flex:1,minHeight:0,overflow:'hidden',display:'flex',flexDirection:'column' }}>
-      <div style={{ fontFamily:'var(--font-display)',fontSize:'clamp(20px,2.8vw,34px)',fontWeight:800,color:'var(--acc)',textAlign:'center',marginBottom:3,flexShrink:0 }}>{state.skill}</div>
-      <div style={{ textAlign:'center',color:'var(--tm)',fontSize:12,marginBottom:10,flexShrink:0 }}>{state.topic} · {state.strand} · {state.year === 'F' ? 'Foundational' : `Year ${state.year}`}</div>
-      <div style={{ display:'flex',flexDirection:'column',gap:8,flex:1,minHeight:0,overflow:'hidden' }}>
-        {[1,2,3,4].map(t => {
-          const qs = (state.byTier?.[t] || []).slice(0,4)
-          if (!qs.length) return null
-          return (
-            <div key={t} style={{ display:'flex',gap:10,flex:1,minHeight:0,overflow:'hidden' }}>
-              <div style={{ background:TIER_BG[t],color:`var(--${['','grn','blu','org','red'][t]})`,padding:'8px 10px',borderRadius:6,fontSize:10,fontWeight:700,letterSpacing:'.1em',textTransform:'uppercase',writingMode:'vertical-rl',transform:'rotate(180deg)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,minWidth:32 }}>
-                T{t}
-              </div>
-              {qs.map((q,qi) => (
-                <div key={qi} style={{ background:'var(--s1)',border:'1px solid var(--b1)',borderRadius:10,padding:'12px 14px',display:'flex',flexDirection:'column',gap:6,flex:1,minWidth:0,overflow:'hidden' }}>
-                  <div style={{ fontSize:10,fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',color:`var(--${['','grn','blu','org','red'][t]})`,flexShrink:0 }}>{t}.{qi+1}</div>
-                  <div style={{ fontFamily:'var(--font-mono)',fontSize:'clamp(13px,1.8vw,22px)',lineHeight:1.45,flex:1,overflow:'hidden',whiteSpace:'pre-wrap' }}>
-                    {q.question_text || q.q}
-                  </div>
-                  {state.showAns && (
-                    <div style={{ fontFamily:'var(--font-mono)',fontSize:'clamp(11px,1.4vw,18px)',color:'var(--grn)',borderTop:'1px solid var(--b1)',paddingTop:6,marginTop:4,flexShrink:0 }}>
-                      → {q.answer_text || q.a}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
+function SVSingleQ({ data }) {
+  const tier = data.tier || 1
+  const mode = data.mode || 'whiteboard'
+  const isTF = mode === 'tf' || mode === 'tf_custom' || data.qtype === 'tf'
+  const isMC = mode === 'mc' || data.qtype === 'mc'
 
-function SVWholeClass({ state }) {
+  const modeLabel = { whiteboard:'📝 Whiteboard', verbal:'🗣 Verbal', tf:'👍 True / False', tf_custom:'👍 True / False', mc:'🃏 Multiple Choice' }
+  const modeDesc = {
+    whiteboard: 'Write your answer, hold up on signal',
+    verbal: 'Think about your answer — teacher will ask you',
+    tf: 'Thumbs UP for True · Thumbs DOWN for False',
+    tf_custom: 'Thumbs UP for True · Thumbs DOWN for False',
+    mc: 'Hold up your A / B / C / D card',
+  }
+  const modeCol = { whiteboard:'var(--acc)', verbal:'var(--blu)', tf:'var(--grn)', tf_custom:'var(--grn)', mc:'var(--pur)' }
+  const col = modeCol[mode] || 'var(--acc)'
+
   return (
-    <div style={{ width:'100%',maxWidth:960,flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center' }}>
-      <div style={{ color:'var(--pur)',fontSize:11,fontWeight:700,letterSpacing:'.2em',textTransform:'uppercase',marginBottom:8 }}>🎯 Whole-Class Question</div>
-      <div style={{ fontFamily:'var(--font-display)',fontSize:'clamp(18px,2.5vw,30px)',fontWeight:800,color:'var(--pur)',textAlign:'center',marginBottom:18 }}>{state.skill}</div>
-      <div style={{ background:'var(--s1)',border:'2px solid rgba(160,74,240,.4)',borderRadius:12,padding:'36px 48px',width:'100%',textAlign:'center' }}>
-        <div style={{ fontFamily:'var(--font-mono)',fontSize:'clamp(18px,3vw,36px)',lineHeight:1.5,whiteSpace:'pre-wrap' }}>{state.wcQ}</div>
-        {state.showAns && (
-          <div style={{ fontFamily:'var(--font-mono)',fontSize:'clamp(16px,2.5vw,28px)',color:'var(--grn)',borderTop:'1px solid var(--b1)',paddingTop:16,marginTop:14 }}>
-            → {state.wcA}
+    <div style={{ width:'100%',maxWidth:900,display:'flex',flexDirection:'column',alignItems:'center',gap:16 }}>
+      {/* Skill + tier */}
+      <div style={{ display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',justifyContent:'center' }}>
+        <div style={{ fontFamily:'var(--font-display)',fontSize:'clamp(16px,2.5vw,28px)',fontWeight:800,color:'var(--acc)',textAlign:'center' }}>{data.skill}</div>
+        <span style={{ padding:'3px 10px',borderRadius:4,background:TIER_BG[tier],color:TIER_COL[tier],fontSize:11,fontWeight:700,fontFamily:'var(--font-mono)' }}>
+          T{tier}
+        </span>
+      </div>
+
+      {/* Mode instruction */}
+      <div style={{ padding:'8px 20px',borderRadius:'var(--rs)',border:`1px solid ${col}40`,background:`${col}10`,textAlign:'center' }}>
+        <div style={{ fontFamily:'var(--font-display)',fontSize:14,fontWeight:700,color:col }}>{modeLabel[mode]}</div>
+        <div style={{ fontSize:12,color:'var(--tm)',marginTop:3 }}>{modeDesc[mode]}</div>
+      </div>
+
+      {/* T/F buttons */}
+      {isTF && !data.showAns && (
+        <div style={{ display:'flex',gap:40 }}>
+          {[{l:'👍 TRUE',c:'var(--grn)'},{l:'👎 FALSE',c:'var(--red)'}].map(tf => (
+            <div key={tf.l} style={{ padding:'16px 36px',borderRadius:'var(--r)',border:`2px solid ${tf.c}50`,background:`${tf.c}12`,fontFamily:'var(--font-display)',fontSize:'clamp(20px,3vw,32px)',fontWeight:800,color:tf.c }}>{tf.l}</div>
+          ))}
+        </div>
+      )}
+
+      {/* The question */}
+      <div style={{ background:'var(--s1)',border:`2px solid ${TIER_BG[tier].replace('.1','.4')}`,borderRadius:'var(--r)',padding:'clamp(20px,3vw,44px) clamp(24px,4vw,60px)',width:'100%',textAlign:'center' }}>
+        <div style={{ fontFamily:'var(--font-mono)',fontSize:'clamp(18px,3.5vw,44px)',lineHeight:1.55,whiteSpace:'pre-wrap',color:'var(--tx)' }}>{data.qtext}</div>
+
+        {/* MC options */}
+        {isMC && !data.showAns && data.qtext.includes('A)') && (
+          <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginTop:20,textAlign:'left' }}>
+            {(data.qtext.match(/[A-D]\).+/g)||[]).map((opt,i) => (
+              <div key={i} style={{ padding:'12px 16px',background:'var(--s2)',borderRadius:'var(--rs)',border:'1px solid var(--b2)',fontFamily:'var(--font-mono)',fontSize:'clamp(14px,2vw,24px)' }}>{opt}</div>
+            ))}
+          </div>
+        )}
+
+        {data.showAns && (
+          <div style={{ marginTop:20,paddingTop:16,borderTop:'1px solid var(--b1)',fontFamily:'var(--font-mono)',fontSize:'clamp(16px,3vw,38px)',color:'var(--grn)' }}>
+            → {data.atext}
           </div>
         )}
       </div>
+
+      {/* Sub-question progress dots */}
+      {data.qTotal > 1 && (
+        <div style={{ display:'flex',gap:8 }}>
+          {Array.from({length:data.qTotal},(_,i) => (
+            <div key={i} style={{ width:8,height:8,borderRadius:'50%',background:i<data.qNum?'var(--acc)':i===data.qNum-1?'var(--acc)':'var(--b2)',transform:i===data.qNum-1?'scale(1.4)':'scale(1)',transition:'all .2s' }} />
+          ))}
+        </div>
+      )}
     </div>
   )
 }
 
-function SVBomb({ state, bombLeft }) {
+function SVBomb({ data, bombLeft }) {
   const urgent = bombLeft <= 10
   return (
     <div style={{ width:'100%',maxWidth:1200,flex:1,display:'flex',flexDirection:'column' }}>
       <div style={{ fontFamily:'var(--font-display)',fontSize:'clamp(26px,5vw,52px)',fontWeight:800,color:'var(--red)',textAlign:'center',marginBottom:6 }}>💣 BEAT THE BOMB 💣</div>
       <div style={{ fontFamily:'var(--font-mono)',fontSize:'clamp(70px,13vw,130px)',fontWeight:800,textAlign:'center',lineHeight:1,marginBottom:16,color:urgent?'var(--red)':'var(--acc)',animation:urgent?'pulse .4s infinite':'none' }}>
-        {bombLeft<=0 ? '💥' : bombLeft}
+        {bombLeft<=0?'💥':bombLeft}
       </div>
-      {state.bomb && (
+      {data.bomb && (
         <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:18,flex:1,minHeight:0 }}>
-          {[{l:'⚡ Standard Challenge',q:state.bomb.easy,c:'grn',bg:'rgba(74,240,160,.06)',b:'rgba(74,240,160,.3)'},
-            {l:'💀 Elite Challenge',q:state.bomb.hard,c:'red',bg:'rgba(240,74,107,.06)',b:'rgba(240,74,107,.3)'}].map(s => (
+          {[{l:'⚡ Standard',q:data.bomb.easy,c:'grn',bg:'rgba(74,240,160,.06)',b:'rgba(74,240,160,.3)'},
+            {l:'💀 Elite',q:data.bomb.hard,c:'red',bg:'rgba(240,74,107,.06)',b:'rgba(240,74,107,.3)'}].map(s => (
             <div key={s.l} style={{ background:s.bg,border:`2px solid ${s.b}`,borderRadius:12,padding:'26px 30px',display:'flex',flexDirection:'column' }}>
               <div style={{ fontFamily:'var(--font-display)',fontSize:11,fontWeight:700,letterSpacing:'.16em',textTransform:'uppercase',color:`var(--${s.c})`,marginBottom:14 }}>{s.l}</div>
               <div style={{ fontFamily:'var(--font-mono)',fontSize:'clamp(16px,2.5vw,30px)',lineHeight:1.5,flex:1 }}>{s.q}</div>
-              {state.showAns && <div style={{ marginTop:12,paddingTop:10,borderTop:'1px solid var(--b1)',fontSize:13,color:'var(--tm)' }}>Discuss with class →</div>}
+              {data.showAns && <div style={{ marginTop:12,paddingTop:10,borderTop:'1px solid var(--b1)',fontSize:13,color:'var(--tm)' }}>Discuss →</div>}
             </div>
           ))}
         </div>
