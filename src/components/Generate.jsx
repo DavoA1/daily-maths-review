@@ -148,19 +148,25 @@ export default function Generate() {
     retrieval.forEach(c => {
       const sk = c.skill || {}
       built.push({ id: c.id + '-ret', skill: sk, classSkill: c, tag: '🧠 Retrieval',
+        isWC: false,
         questions: (qMap[sk.id] || []).sort((a,b) => a.tier-b.tier),
         btbEasy: sk.btb_easy || '', btbHard: sk.btb_hard || '' })
     })
 
-    // 4. Due topics (low mastery → whole-class)
+    // 4. Due topics — always tiered questions
+    // Low mastery gets a warning tag but stays tiered so all students engage
     due.forEach(c => {
       const sk = c.skill || {}
       const mastery = c.mastery || 1
       const slideQs = (qMap[sk.id] || []).sort((a,b) => a.tier-b.tier)
-      const isWC = mastery <= 2
-      built.push({ id: c.id, skill: sk, classSkill: c,
-        tag: isWC ? '🎯 Whole class' : '',
-        isWC,
+      // Only make WC if teacher has explicitly rated 1 or 2 multiple times
+      const history = Array.isArray(c.rating_history) ? c.rating_history : []
+      const recentLowRatings = history.slice(-3).filter(r => r.rating <= 2).length
+      const forceWC = recentLowRatings >= 2 // class has struggled at least twice recently
+      built.push({
+        id: c.id, skill: sk, classSkill: c,
+        tag: mastery <= 2 ? '⚠ Low mastery — watch this one' : '',
+        isWC: forceWC, // only WC if repeatedly struggling
         questions: slideQs,
         btbEasy: sk.btb_easy || '', btbHard: sk.btb_hard || ''
       })
@@ -281,10 +287,10 @@ export default function Generate() {
             {/* Slide header */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, padding: '13px 16px', borderBottom: '1px solid var(--b1)' }}>
               <div>
-                <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15 }}>
+                <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                   Slide {si + 1}: {sk.skill_name}
-                  {slide.tag && <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--blu)', marginLeft: 8 }}>{slide.tag}</span>}
-                  {isWC && <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, background: 'rgba(160,74,240,.15)', color: 'var(--pur)', marginLeft: 8 }}>Whole Class</span>}
+                  {slide.tag && <span style={{ fontSize: 10, fontWeight: 600, color: slide.tag.includes('⚠') ? 'var(--org)' : slide.tag.includes('Retrieval') ? 'var(--pur)' : 'var(--blu)', padding: '2px 7px', background: slide.tag.includes('⚠') ? 'rgba(240,148,74,.12)' : 'rgba(74,200,240,.1)', borderRadius: 4 }}>{slide.tag}</span>}
+                  {isWC && <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, background: 'rgba(160,74,240,.15)', color: 'var(--pur)' }}>🎯 Whole Class</span>}
                 </div>
                 <div style={{ fontSize: 10, color: 'var(--tm)', marginTop: 2 }}>{sk.topic} · {sk.strand} · {sk.year_level === 'F' ? 'Foundational' : `Year ${sk.year_level}`}</div>
               </div>
@@ -320,9 +326,15 @@ export default function Generate() {
                   </div>
                 )
               })}
-              <button onClick={() => openAddQ(si)} style={{ width: '100%', padding: '8px', border: '1px dashed var(--b2)', borderRadius: 'var(--rs)', background: 'transparent', color: 'var(--tm)', fontSize: 11, cursor: 'pointer', marginTop: 4, transition: 'all .15s' }}>
-                + Add question to this slide
-              </button>
+              <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                <button onClick={() => openAddQ(si)} style={{ flex: 1, padding: '8px', border: '1px dashed var(--b2)', borderRadius: 'var(--rs)', background: 'transparent', color: 'var(--tm)', fontSize: 11, cursor: 'pointer', transition: 'all .15s' }}>
+                  + Add question
+                </button>
+                <button onClick={() => setSlides(s => { const n = [...s]; n[si] = {...n[si], isWC: !n[si].isWC}; setCurrentSlides(n); return n })}
+                  style={{ padding: '8px 14px', border: `1px solid ${slides[si]?.isWC ? 'var(--pur)' : 'var(--b2)'}`, borderRadius: 'var(--rs)', background: slides[si]?.isWC ? 'rgba(160,74,240,.12)' : 'transparent', color: slides[si]?.isWC ? 'var(--pur)' : 'var(--tm)', fontSize: 11, cursor: 'pointer', transition: 'all .15s', whiteSpace: 'nowrap' }}>
+                  {slides[si]?.isWC ? '🎯 Whole Class ✓' : 'Switch to Whole Class'}
+                </button>
+              </div>
             </div>
           </div>
         )
