@@ -13,6 +13,7 @@ export async function seedAll() {
   const allSkills = [...enrichCurriculum(CURRICULUM), ...CAMBRIDGE_Y9]
 
   for (const skill of allSkills) {
+    // Upsert the skill — if it already exists, get back its ID
     const { data: skillRow, error: skillErr } = await supabase
       .from('skills')
       .upsert({
@@ -27,7 +28,7 @@ export async function seedAll() {
         btb_chain: skill.btbChain || skill.btb_chain || '',
         is_shared: true,
         created_by: user.id
-      }, { onConflict: 'year_level,strand,topic,skill_name' })
+      }, { onConflict: 'year_level,strand,topic,skill_name', ignoreDuplicates: false })
       .select('id')
       .single()
 
@@ -36,8 +37,26 @@ export async function seedAll() {
       continue
     }
 
+    // Defensive fallback: if upsert returned no id (Supabase quirk on unchanged rows),
+    // fetch the existing row by its unique key
+    let skillId = skillRow?.id
+    if (!skillId) {
+      const { data: existing } = await supabase
+        .from('skills')
+        .select('id')
+        .eq('year_level', skill.year)
+        .eq('strand', skill.strand)
+        .eq('topic', skill.topic)
+        .eq('skill_name', skill.skill)
+        .single()
+      skillId = existing?.id
+    }
+    if (!skillId) {
+      console.error('Could not get skill ID for:', skill.skill)
+      continue
+    }
+
     skillCount++
-    const skillId = skillRow.id
 
     // Delete existing questions then re-insert
     await supabase.from('questions').delete().eq('skill_id', skillId)
