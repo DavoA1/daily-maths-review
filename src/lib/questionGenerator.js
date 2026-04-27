@@ -442,9 +442,10 @@ export function generateQuestionsForSkill(skill, count = 4, tier = null) {
 const TIER_TARGETS = { 1: 6, 2: 6, 3: 2, 4: 1 }
 
 export function augmentWithGenerated(skill, bankedQuestions, targetPerTier = null) {
-  reseed()
   const keys = getGeneratorKeys(skill)
+  // No generators for this skill — return banked questions immediately, no loop
   if (!keys.length) return bankedQuestions
+  reseed()
 
   const byTier = {1:[],2:[],3:[],4:[]}
   bankedQuestions.forEach(q => { if(byTier[q.tier]) byTier[q.tier].push(q) })
@@ -460,7 +461,7 @@ export function augmentWithGenerated(skill, bankedQuestions, targetPerTier = nul
     let added = 0
     // Only auto-generate for T1 and T2 — T3/T4 should come from the curated bank
     if (tier >= 3 || needed <= 0) continue
-    while (added < needed && attempts < needed * 15) {
+    while (added < needed && attempts < needed * 5) {
       attempts++
       const key = pick(keys)
       const gen = GENERATORS[key]
