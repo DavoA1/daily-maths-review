@@ -60,8 +60,13 @@ export default function Present() {
     : currentSlide.singleMode ? 'single'
     : 'tiered'
 
-  const singleSeq = currentSlide ? assignModes(currentSlide.questions || []).slice(0, 5) : []
-  const currentQ = slideMode === 'single' ? singleSeq[qIdx] : null
+  // For spotlight slides, always just 1 question. For singleMode bank slides, up to 5.
+  const singleSeq = currentSlide
+    ? currentSlide.isSpotlight
+      ? assignModes(currentSlide.questions || [])
+      : assignModes(currentSlide.questions || []).slice(0, 5)
+    : []
+  const currentQ = slideMode === 'single' ? (singleSeq[qIdx] || singleSeq[0]) : null
   const modeConfig = currentQ ? (MODE_CONFIG[currentQ.presentMode] || MODE_CONFIG.whiteboard) : MODE_CONFIG.whiteboard
 
   function startTimer(s) {
@@ -132,7 +137,11 @@ export default function Present() {
     ;(slide?.questions || []).forEach(q => { if(byTier[q.tier]) byTier[q.tier].push(q) })
     channel.postMessage({
       type:'slide', isBomb:false, showAns:ans,
-      slideMode: slide?.isWC ? 'single' : (slide?.singleMode ? 'single' : 'tiered'),
+      slideMode: slide?.isSpotlight ? 'single' : (slide?.isBank && !slide?.singleMode) ? 'tiered' : slide?.singleMode ? 'single' : 'tiered',
+      isSpotlight: slide?.isSpotlight || false,
+      isBank: slide?.isBank || false,
+      spotlightIndex: slide?.spotlightIndex,
+      spotlightTotal: slide?.spotlightTotal,
       skill: slide?.skill?.skill_name, topic: slide?.skill?.topic,
       year: slide?.skill?.year_level, strand: slide?.skill?.strand,
       qtext: q?.question_text || q?.q || '',
@@ -196,11 +205,21 @@ export default function Present() {
       {/* Top bar */}
       <div style={{ display:'flex', alignItems:'center', padding:'8px 18px', background:'rgba(0,0,0,.4)', backdropFilter:'blur(8px)', borderBottom:'1px solid rgba(255,255,255,.1)', flexShrink:0, gap:12, flexWrap:'wrap' }}>
         <div style={{ flex:1, minWidth:0 }}>
-          <div style={{ color:'#e0e7ff', fontWeight:700, fontSize:14, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+          <div style={{ color:'#e0e7ff', fontWeight:700, fontSize:14, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', display:'flex', alignItems:'center', gap:8 }}>
             {isBomb ? '💣 BEAT THE BOMB' : sk.skill_name}
+            {!isBomb && currentSlide?.isSpotlight && (
+              <span style={{ fontSize:10, padding:'2px 7px', borderRadius:4, background:'rgba(167,139,250,.25)', color:'#c4b5fd', fontWeight:700, whiteSpace:'nowrap' }}>
+                💡 Spotlight {currentSlide.spotlightIndex+1}/{currentSlide.spotlightTotal}
+              </span>
+            )}
+            {!isBomb && currentSlide?.isBank && (
+              <span style={{ fontSize:10, padding:'2px 7px', borderRadius:4, background:'rgba(74,200,240,.2)', color:'#67e8f9', fontWeight:700, whiteSpace:'nowrap' }}>
+                📋 Full Bank
+              </span>
+            )}
           </div>
           {!isBomb && <div style={{ color:'rgba(224,231,255,.5)', fontSize:11, marginTop:1 }}>
-            Slide {slideIdx+1}/{allSlides.length} {slideMode==='single' && singleSeq.length > 1 ? `· Q${qIdx+1}/${singleSeq.length}` : ''} · {sk.strand} · Yr {sk.year_level}
+            Slide {slideIdx+1}/{allSlides.length} · {sk.strand} · {sk.year_level==='F'?'Foundational':`Yr ${sk.year_level}`}
           </div>}
         </div>
 

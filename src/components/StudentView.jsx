@@ -49,8 +49,10 @@ export default function StudentView() {
           <div style={{ width:14,height:14,background:'#a78bfa',clipPath:'polygon(50% 0%,100% 75%,80% 100%,20% 100%,0% 75%)' }} />
           Daily Maths Review
         </div>
-        <div style={{ fontFamily:'monospace',fontSize:12,color:'rgba(224,231,255,.5)' }}>
+        <div style={{ fontFamily:'monospace',fontSize:12,color:'rgba(224,231,255,.5)', display:'flex', alignItems:'center', gap:8 }}>
           {data.isBomb ? '💣 Beat the Bomb' : `Slide ${data.slideNum}/${data.slideTotal}`}
+          {data.isSpotlight && <span style={{ fontSize:10, padding:'1px 6px', borderRadius:4, background:'rgba(167,139,250,.3)', color:'#c4b5fd' }}>💡 Spotlight {data.spotlightIndex+1}/{data.spotlightTotal}</span>}
+          {data.isBank && !data.isSpotlight && <span style={{ fontSize:10, padding:'1px 6px', borderRadius:4, background:'rgba(74,200,240,.3)', color:'#67e8f9' }}>📋 Full Bank</span>}
         </div>
         <div style={{ fontSize:12,color:'rgba(224,231,255,.4)' }}>
           {new Date().toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long'})}
@@ -60,7 +62,7 @@ export default function StudentView() {
       {/* Content */}
       <div style={{ flex:1,overflow:'hidden',padding:'10px 18px 8px',display:'flex',flexDirection:'column',alignItems:'center',background:'#f8fafc' }}>
         {data.isBomb ? <SVBomb data={data} bombLeft={bombLeft} />
-         : data.slideMode==='single' ? <SVSingleQ data={data} />
+         : (data.slideMode==='single' || data.isSpotlight) ? <SVSingleQ data={data} />
          : <SVTiered data={data} />}
       </div>
     </div>
