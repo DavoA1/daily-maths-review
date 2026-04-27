@@ -4,6 +4,7 @@ import { useSettings } from '../lib/settings.jsx'
 import { supabase } from '../lib/supabase.js'
 import { getDueConcepts, getUpcomingSkills, getRetrievalGaps } from '../lib/spacedRep.js'
 import { FOUNDATIONAL } from '../lib/curriculum.js'
+import { augmentWithGenerated } from '../lib/questionGenerator.js'
 import { useNavigate } from 'react-router-dom'
 
 // Store generated slides globally so Present page can access them
@@ -192,6 +193,7 @@ export default function Generate() {
   async function doGenerate() {
     if (!activeClass) return
     setLoading(true)
+    try {
     // Single fetch — loadClassData returns fresh data directly (no React state timing issues)
     const freshData = await loadClassData(activeClass)
     const allClassSkills = freshData.classSkills
@@ -288,6 +290,11 @@ export default function Generate() {
     })
     setLoading(false)
     showToast(`Generated ${totalSlides} slides for ${skillCount} skills`)
+    } catch(err) {
+      console.error('Generate error:', err)
+      showToast('Error generating slides — check console')
+      setLoading(false)
+    }
   }
 
   function removeSlide(idx) {
