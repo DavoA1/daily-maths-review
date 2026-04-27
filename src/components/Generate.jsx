@@ -81,7 +81,9 @@ export default function Generate() {
   // Returns an array of slides — spotlight singles + final full bank
   function buildSlideSet(cs, tag = '', opts = {}) {
     const sk = cs.skill || {}
-    const allQs = getQuestionsForSkill(sk.id || cs.skill_id).sort((a, b) => a.tier - b.tier)
+    const bankedQs = getQuestionsForSkill(sk.id || cs.skill_id)
+    // Augment with algorithmically generated questions for tiers that have < 4 questions
+    const allQs = augmentWithGenerated(sk, bankedQs, 4).sort((a, b) => a.tier - b.tier)
     const btbEasy = sk.btb_easy || ''
     const btbHard = sk.btb_hard || ''
     const btbChain = sk.btb_chain || ''
@@ -138,7 +140,8 @@ export default function Generate() {
   // Legacy single-slide builder (used for retrieval/prereq where we don't want full sets)
   function buildSingleSlide(cs, tag = '', opts = {}) {
     const sk = cs.skill || {}
-    const qs = getQuestionsForSkill(sk.id || cs.skill_id).sort((a, b) => a.tier - b.tier)
+    const banked = getQuestionsForSkill(sk.id || cs.skill_id)
+    const qs = augmentWithGenerated(sk, banked, 4).sort((a, b) => a.tier - b.tier)
     return {
       id: cs.id,
       skill: sk,

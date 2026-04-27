@@ -70,38 +70,90 @@ export default function StudentView() {
 }
 
 // ── TIERED STUDENT VIEW ──
+// T1: 6 questions · T2: 6 questions · T3: 2 questions · T4: 1 challenge
 function SVTiered({ data }) {
-  const byTier = data.byTier || {1:[],2:[],3:[],4:[]}
+  const byTierRaw = data.byTier || {1:[],2:[],3:[],4:[]}
+  const TIER_LIMITS = { 1: 6, 2: 6, 3: 2, 4: 1 }
+
+  const tieredRows = [1,2,3,4].map(t => {
+    const qs = [...(byTierRaw[t] || [])]
+    if (!qs.length) return null
+    const selected = qs
+      .sort((a,b) => (a.question_text||a.q||'').length - (b.question_text||b.q||'').length)
+      .slice(0, TIER_LIMITS[t])
+    return { tier: t, qs: selected }
+  }).filter(Boolean)
+
+  if (!tieredRows.length) return (
+    <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', color:'#94a3b8', fontSize:18 }}>
+      No questions yet.
+    </div>
+  )
+
+  const t1t2Qs = tieredRows.filter(r=>r.tier<=2).flatMap(r=>r.qs)
+  const t3t4Qs = tieredRows.filter(r=>r.tier>=3).flatMap(r=>r.qs)
+  const maxShortLen = t1t2Qs.length ? Math.max(...t1t2Qs.map(q=>(q.question_text||q.q||'').length)) : 20
+  const maxLongLen  = t3t4Qs.length ? Math.max(...t3t4Qs.map(q=>(q.question_text||q.q||'').length)) : 40
+
+  const fontSm = maxShortLen > 60 ? 11 : maxShortLen > 40 ? 12 : maxShortLen > 25 ? 14 : 16
+  const fontLg = maxLongLen > 120 ? 13 : maxLongLen > 80 ? 14 : maxLongLen > 50 ? 16 : 18
+
   return (
-    <div style={{ width:'100%',maxWidth:1400,flex:1,minHeight:0,overflow:'hidden',display:'flex',flexDirection:'column' }}>
+    <div style={{ width:'100%', maxWidth:1400, flex:1, minHeight:0, overflow:'hidden', display:'flex', flexDirection:'column' }}>
+
       {/* Skill header */}
-      <div style={{ textAlign:'center',marginBottom:8,flexShrink:0 }}>
-        <div style={{ color:'#1e1b4b',fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:'clamp(20px,2.8vw,34px)' }}>{data.skill}</div>
-        <div style={{ color:'#64748b',fontSize:13,marginTop:2 }}>{data.topic} · {data.strand} · {data.year==='F'?'Foundational':`Year ${data.year}`}</div>
+      <div style={{ textAlign:'center', marginBottom:6, flexShrink:0 }}>
+        <div style={{ color:'#1e1b4b', fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'clamp(20px,2.8vw,36px)' }}>{data.skill}</div>
+        <div style={{ color:'#64748b', fontSize:13, marginTop:2 }}>
+          {data.topic} · {data.strand} · {data.year==='F'?'Foundational':`Year ${data.year}`}
+        </div>
       </div>
 
-      <div style={{ display:'flex',flexDirection:'column',gap:8,flex:1,minHeight:0,overflow:'hidden' }}>
-        {[1,2,3,4].map(t => {
-          const qs = (byTier[t] || [])
-          if (!qs.length) return null
+      <div style={{ display:'flex', flexDirection:'column', gap:6, flex:1, minHeight:0, overflow:'hidden' }}>
+        {tieredRows.map(({ tier: t, qs }) => {
+          const isHighTier = t >= 3
+          const font = isHighTier ? fontLg : fontSm
+          const ansFont = Math.max(10, font - 2)
+          const cols = t === 4 ? 1 : t === 3 ? 2 : qs.length <= 3 ? qs.length : 3
+          const flexWeight = t <= 2 ? 1.2 : t === 3 ? 2 : 2.5
+
           return (
-            <div key={t} style={{ display:'flex',gap:8,flex:1,minHeight:0,overflow:'hidden' }}>
+            <div key={t} style={{ display:'flex', gap:6, flex:flexWeight, minHeight:0, overflow:'hidden' }}>
               {/* Tier label */}
-              <div style={{ background:TIER_BG[t],border:`1px solid ${TIER_BORDER[t]}`,color:TIER_COLS[t],padding:'6px 10px',borderRadius:8,fontSize:11,fontWeight:800,letterSpacing:'.06em',writingMode:'vertical-rl',transform:'rotate(180deg)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,minWidth:32,textTransform:'uppercase' }}>
-                T{t}
+              <div style={{
+                background:TIER_BG[t], border:`1.5px solid ${TIER_BORDER[t]}`,
+                color:TIER_COLS[t], padding:'5px 7px', borderRadius:8,
+                fontSize: t<=2 ? 9 : 11, fontWeight:800, letterSpacing:'.06em',
+                writingMode:'vertical-rl', transform:'rotate(180deg)',
+                display:'flex', alignItems:'center', justifyContent:'center',
+                flexShrink:0, minWidth: t<=2 ? 28 : 32, textTransform:'uppercase'
+              }}>
+                {t === 4 ? '🏆' : `T${t}`}
               </div>
-              <div style={{ display:'grid',gridTemplateColumns:`repeat(${Math.min(qs.length,qs.length<=3?qs.length:qs.length<=6?Math.ceil(qs.length/2):Math.ceil(qs.length/3))},1fr)`,gap:8,flex:1,minHeight:0,overflow:'hidden' }}>
-                {qs.map((q,qi) => {
+
+              <div style={{ display:'grid', gridTemplateColumns:`repeat(${cols},1fr)`, gap:6, flex:1, minHeight:0, overflow:'hidden', alignContent:'start' }}>
+                {qs.map((q, qi) => {
                   const qt = q.question_text || q.q || ''
                   const at = q.answer_text || q.a || ''
                   const img = q.image_url || ''
                   return (
-                    <div key={qi} style={{ background:'white',border:`1.5px solid ${TIER_BORDER[t]}`,borderRadius:10,padding:'10px 14px',display:'flex',flexDirection:'column',overflow:'hidden' }}>
-                      <div style={{ color:TIER_COLS[t],fontSize:11,fontWeight:800,marginBottom:4,letterSpacing:'.05em' }}>{t}.{qi+1}</div>
-                      {img && <img src={img} alt="" style={{ maxHeight:80,objectFit:'contain',marginBottom:6,borderRadius:4 }} />}
-                      <div style={{ color:'#1e293b',fontFamily:"'JetBrains Mono',monospace",fontSize:'clamp(12px,1.6vw,20px)',lineHeight:1.5,flex:1,overflow:'hidden',whiteSpace:'pre-wrap' }}>{qt}</div>
+                    <div key={qi} style={{
+                      background: t===4 ? 'linear-gradient(135deg,#fff,#fffbeb)' : 'white',
+                      border:`${t===4?2:1.5}px solid ${TIER_BORDER[t]}`,
+                      borderRadius:10, padding:'9px 14px',
+                      display:'flex', flexDirection:'column', overflow:'hidden',
+                    }}>
+                      <div style={{ color:TIER_COLS[t], fontSize:10, fontWeight:800, marginBottom:4 }}>
+                        {t===4 ? '🏆 CHALLENGE' : `${t}.${qi+1}`}
+                      </div>
+                      {img && <img src={img} alt="" style={{ maxHeight: t>=3?100:60, objectFit:'contain', marginBottom:6, borderRadius:4 }} />}
+                      <div style={{ color:'#1e293b', fontFamily:"'JetBrains Mono',monospace", fontSize:`${font}px`, lineHeight:1.5, flex:1, overflow:'hidden', whiteSpace:'pre-wrap', wordBreak:'break-word', fontWeight: t===4?600:400 }}>
+                        {qt}
+                      </div>
                       {data.showAns && (
-                        <div style={{ color:'#166534',fontFamily:"'JetBrains Mono',monospace",fontSize:'clamp(11px,1.3vw,17px)',borderTop:`1px solid ${TIER_BORDER[t]}`,paddingTop:5,marginTop:5 }}>→ {at}</div>
+                        <div style={{ color:'#166534', fontFamily:"'JetBrains Mono',monospace", fontSize:`${ansFont}px`, borderTop:`1px solid ${TIER_BORDER[t]}`, paddingTop:5, marginTop:5, fontWeight:600 }}>
+                          → {at}
+                        </div>
                       )}
                     </div>
                   )

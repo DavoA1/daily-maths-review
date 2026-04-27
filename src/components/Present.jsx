@@ -301,52 +301,136 @@ export default function Present() {
   )
 }
 
-// ── TIERED SLIDE (main format — 10-20 questions in rows by tier) ──
+// ── TIERED SLIDE ──
+// T1: up to 6 questions (quick practice volume)
+// T2: up to 6 questions (core skill practice)
+// T3: up to 2 questions (extension thinking)
+// T4: 1 challenge question
 function TieredSlide({ slide, showAns }) {
   if (!slide) return null
   const sk = slide.skill || {}
+
+  const TIER_LIMITS = { 1: 6, 2: 6, 3: 2, 4: 1 }
+
   const byTier = {1:[],2:[],3:[],4:[]}
   ;(slide.questions || []).forEach(q => { if(byTier[q.tier]) byTier[q.tier].push(q) })
 
+  const tieredRows = [1,2,3,4].map(t => {
+    const qs = [...byTier[t]]
+    if (!qs.length) return null
+    // Pick shortest questions up to the tier limit
+    const selected = qs
+      .sort((a,b) => (a.question_text||a.q||'').length - (b.question_text||b.q||'').length)
+      .slice(0, TIER_LIMITS[t])
+    return { tier: t, qs: selected }
+  }).filter(Boolean)
+
+  if (!tieredRows.length) return (
+    <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', color:'rgba(224,231,255,.4)', fontSize:18 }}>
+      No questions yet — try re-seeding the question bank.
+    </div>
+  )
+
+  // Auto font-size: T1/T2 short questions can be smaller; T3/T4 get more space
+  const t1t2Qs = tieredRows.filter(r => r.tier <= 2).flatMap(r => r.qs)
+  const t3t4Qs = tieredRows.filter(r => r.tier >= 3).flatMap(r => r.qs)
+  const maxShortLen = t1t2Qs.length ? Math.max(...t1t2Qs.map(q => (q.question_text||q.q||'').length)) : 20
+  const maxLongLen  = t3t4Qs.length ? Math.max(...t3t4Qs.map(q => (q.question_text||q.q||'').length)) : 40
+
+  // T1/T2 font: smaller because more items
+  const fontSm = maxShortLen > 60 ? 10 : maxShortLen > 40 ? 11 : maxShortLen > 25 ? 12 : 13
+  // T3/T4 font: larger because fewer items and longer reasoning questions
+  const fontLg = maxLongLen > 120 ? 12 : maxLongLen > 80 ? 13 : maxLongLen > 50 ? 14 : 15
+
   return (
     <div style={{ width:'100%', maxWidth:1400, display:'flex', flexDirection:'column', flex:1, minHeight:0, overflow:'hidden' }}>
+
       {/* Skill header */}
-      <div style={{ textAlign:'center', marginBottom:8, flexShrink:0 }}>
-        <div style={{ color:'#e0e7ff', fontFamily:"'Syne', sans-serif", fontWeight:800, fontSize:'clamp(16px,2vw,26px)' }}>{sk.skill_name}</div>
-        <div style={{ color:'rgba(224,231,255,.5)', fontSize:11, marginTop:2 }}>{sk.topic} · {sk.strand} · {sk.year_level==='F'?'Foundational':`Year ${sk.year_level}`}</div>
+      <div style={{ textAlign:'center', marginBottom:6, flexShrink:0 }}>
+        <div style={{ color:'#e0e7ff', fontFamily:"'Syne', sans-serif", fontWeight:800, fontSize:'clamp(14px,1.7vw,22px)' }}>{sk.skill_name}</div>
+        <div style={{ color:'rgba(224,231,255,.45)', fontSize:11, marginTop:1 }}>
+          {sk.topic} · {sk.strand} · {sk.year_level==='F'?'Foundational':`Year ${sk.year_level}`}
+        </div>
       </div>
 
       {/* Tier rows */}
-      <div style={{ display:'flex', flexDirection:'column', gap:6, flex:1, minHeight:0, overflow:'hidden' }}>
-        {[1,2,3,4].map(t => {
-          const qs = byTier[t]
-          if (!qs.length) return null
+      <div style={{ display:'flex', flexDirection:'column', gap:5, flex:1, minHeight:0, overflow:'hidden' }}>
+        {tieredRows.map(({ tier: t, qs }) => {
+          const isHighTier = t >= 3
+          const font = isHighTier ? fontLg : fontSm
+          const ansFont = Math.max(9, font - 2)
+
+          // Column layout: T1/T2 → 3 cols (2 rows of 3); T3 → 2 cols; T4 → 1 col
+          const cols = t === 4 ? 1 : t === 3 ? 2 : qs.length <= 3 ? qs.length : 3
+
+          // T1/T2 get proportionally less height (more rows), T3/T4 get more
+          const flexWeight = t <= 2 ? 1.2 : t === 3 ? 1.8 : 2.2
+
           return (
-            <div key={t} style={{ display:'flex', gap:6, flex:1, minHeight:0, overflow:'hidden' }}>
-              {/* Tier label */}
-              <div style={{ background:TIER_BG[t], border:`1px solid ${TIER_BORDER[t]}`, color:TIER_COLS[t], padding:'4px 8px', borderRadius:8, fontSize:11, fontWeight:800, letterSpacing:'.05em', writingMode:'vertical-rl', transform:'rotate(180deg)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, minWidth:30, textTransform:'uppercase' }}>
-                T{t} {TIER_LABELS[t]}
+            <div key={t} style={{ display:'flex', gap:5, flex:flexWeight, minHeight:0, overflow:'hidden' }}>
+              {/* Tier label — vertical pill */}
+              <div style={{
+                background: TIER_BG[t], border:`1.5px solid ${TIER_BORDER[t]}`,
+                color: TIER_COLS[t], padding:'4px 5px', borderRadius:7,
+                fontSize: t <= 2 ? 8 : 10, fontWeight:800, letterSpacing:'.06em',
+                writingMode:'vertical-rl', transform:'rotate(180deg)',
+                display:'flex', alignItems:'center', justifyContent:'center',
+                flexShrink:0, minWidth: t <= 2 ? 24 : 28, textTransform:'uppercase'
+              }}>
+                {t === 4 ? '🏆' : `T${t}`}
               </div>
-              {/* Questions */}
-              <div style={{ display:'grid', gridTemplateColumns:`repeat(${Math.min(qs.length, qs.length<=4?qs.length:qs.length<=8?Math.ceil(qs.length/2):Math.ceil(qs.length/3))}, 1fr)`, gap:5, flex:1, minHeight:0, overflow:'hidden' }}>
-                {qs.map((q,qi) => {
-                  const qt = q.question_text || q.q || ''
-                  const at = q.answer_text || q.a || ''
-                  const img = q.image_url || ''
+
+              {/* Question grid */}
+              <div style={{
+                display:'grid',
+                gridTemplateColumns:`repeat(${cols}, 1fr)`,
+                gap:5, flex:1, minHeight:0, overflow:'hidden',
+                alignContent:'start'
+              }}>
+                {qs.map((q, qi) => {
+                  const qtext = q.question_text || q.q || ''
+                  const atext = q.answer_text || q.a || ''
+                  const img   = q.image_url || ''
+                  const isGen = q.generated
+
                   return (
-                    <div key={qi} style={{ background:'rgba(255,255,255,.95)', border:`1.5px solid ${TIER_BORDER[t]}`, borderRadius:8, padding:'7px 10px', display:'flex', flexDirection:'column', overflow:'hidden', minHeight:0 }}>
-                      {/* Question number */}
-                      <div style={{ color:TIER_COLS[t], fontSize:10, fontWeight:800, marginBottom:3, letterSpacing:'.05em' }}>{t}.{qi+1}</div>
-                      {/* Question image */}
-                      {img && <img src={img} alt="" style={{ maxHeight:60, objectFit:'contain', marginBottom:4, borderRadius:4 }} />}
+                    <div key={qi} style={{
+                      background: t === 4 ? 'linear-gradient(135deg,rgba(255,255,255,.99),rgba(255,251,235,.98))' : 'rgba(255,255,255,.97)',
+                      border: `${t === 4 ? 2 : 1.5}px solid ${TIER_BORDER[t]}`,
+                      borderRadius: 8, padding:'7px 10px',
+                      display:'flex', flexDirection:'column',
+                      overflow:'hidden', minHeight:0,
+                    }}>
+                      {/* Label row */}
+                      <div style={{ display:'flex', alignItems:'center', gap:4, marginBottom:3 }}>
+                        <span style={{ color:TIER_COLS[t], fontSize:9, fontWeight:800, letterSpacing:'.04em' }}>
+                          {t === 4 ? '🏆 CHALLENGE' : `${t}.${qi+1}`}
+                        </span>
+                        {isGen && <span style={{ fontSize:8, color:'#94a3b8' }}>⚡gen</span>}
+                      </div>
+                      {/* Image */}
+                      {img && <img src={img} alt="" style={{ maxHeight: t >= 3 ? 80 : 50, objectFit:'contain', marginBottom:4, borderRadius:3 }} />}
                       {/* Question text */}
-                      <div style={{ color:'#1e293b', fontFamily:"'JetBrains Mono', monospace", fontSize:'clamp(10px,1.1vw,14px)', lineHeight:1.45, flex:1, overflow:'hidden', whiteSpace:'pre-wrap' }}>
-                        {qt}
+                      <div style={{
+                        color: '#0f172a',
+                        fontFamily: "'JetBrains Mono', monospace",
+                        fontSize: `${font}px`,
+                        lineHeight: 1.45,
+                        flex:1, overflow:'hidden',
+                        whiteSpace:'pre-wrap', wordBreak:'break-word',
+                        fontWeight: t === 4 ? 600 : 400,
+                      }}>
+                        {qtext}
                       </div>
                       {/* Answer */}
                       {showAns && (
-                        <div style={{ color:'#166534', fontFamily:"'JetBrains Mono', monospace", fontSize:'clamp(9px,0.9vw,12px)', borderTop:`1px solid ${TIER_BORDER[t]}`, paddingTop:3, marginTop:3 }}>
-                          → {at}
+                        <div style={{
+                          color:'#166534', fontFamily:"'JetBrains Mono', monospace",
+                          fontSize:`${ansFont}px`, fontWeight:600,
+                          borderTop:`1px solid ${TIER_BORDER[t]}`, paddingTop:3, marginTop:3,
+                          overflow:'hidden',
+                        }}>
+                          → {atext}
                         </div>
                       )}
                     </div>
