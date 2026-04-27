@@ -4,9 +4,241 @@ import { useSettings } from '../lib/settings.jsx'
 import { supabase } from '../lib/supabase.js'
 import { getDueConcepts, getUpcomingSkills, getRetrievalGaps } from '../lib/spacedRep.js'
 import { FOUNDATIONAL } from '../lib/curriculum.js'
-import { augmentWithGenerated } from '../lib/questionGenerator.js'
 import { useNavigate } from 'react-router-dom'
 
+
+// ─── INLINE QUESTION GENERATOR ───────────────────────────────
+// Generates fresh T1/T2 questions algorithmically to fill gaps in the question bank
+let _gseed = Date.now()
+function _rng() { _gseed = (_gseed * 1664525 + 1013904223) & 0xffffffff; return ((_gseed >>> 0) / 0xffffffff) }
+function _rand(min, max) { return Math.floor(_rng() * (max - min + 1)) + min }
+function _pick(arr) { return arr[Math.floor(_rng() * arr.length)] }
+function _gcd(a, b) { return b === 0 ? Math.abs(a) : _gcd(b, a % b) }
+function _simplify(n, d) { const g = _gcd(Math.abs(n), Math.abs(d)); return [n/g, d/g] }
+function _frac(n, d) {
+  if (d === 1) return `${n}`
+  const [sn, sd] = _simplify(n, d)
+  if (sd < 0) return _frac(-sn, -sd)
+  const w = Math.floor(Math.abs(sn)/sd), r = Math.abs(sn)%sd, sg = sn<0?'−':''
+  if (r === 0) return `${sn}`
+  return w === 0 ? `${sg}${Math.abs(sn)}⁄${sd}` : `${sg}${w} ${r}⁄${sd}`
+}
+
+const _GENS = {
+  bidmas_t1: () => {
+    const t = _pick([
+      () => { const a=_rand(2,9),b=_rand(2,9),c=_rand(1,9); return {q:`Evaluate: ${a} × ${b} − ${c}`,a:`${a*b-c}`} },
+      () => { const a=_rand(2,8); return {q:`Evaluate: (−${a})²`,a:`${a*a}`} },
+      () => { const a=_rand(2,5); return {q:`Evaluate: −${a}²`,a:`${-(a*a)}`} },
+      () => { const a=_rand(1,9),b=_rand(1,9),c=_rand(2,6); return {q:`Evaluate: ${a} + ${b} × ${c}`,a:`${a+b*c}`} },
+      () => { const a=_rand(-9,-2),b=_rand(2,8); return {q:`Evaluate: ${a} × ${b}`,a:`${a*b}`} },
+      () => { const a=_rand(-8,-2),b=_rand(-6,-2); return {q:`Evaluate: (${a}) × (${b})`,a:`${a*b}`} },
+      () => { const a=_rand(2,4); return {q:`Evaluate: (−${a})³`,a:`${-(a*a*a)}`} },
+    ])(); return {tier:1,type:'std',q:t.q,a:t.a}
+  },
+  bidmas_t2: () => {
+    const t = _pick([
+      () => { const a=_rand(2,5),b=_rand(2,8),c=_rand(1,6),d=_rand(1,5); return {q:`Evaluate: ${a} × ${b} − ${c} × ${d}`,a:`${a*b-c*d}`} },
+      () => { const a=_rand(2,6),b=_rand(2,4); return {q:`Evaluate: ${a}³ − ${_rand(1,10)}`,a:`${Math.pow(a,3)-_rand(1,10)}`} },
+      () => { const sq=[4,9,16,25,36,49,64],s=_pick(sq),r=Math.sqrt(s),aa=_rand(2,5); return {q:`Evaluate: √${s} + ${aa}²`,a:`${r+aa*aa}`} },
+    ])(); return {tier:2,type:'std',q:t.q,a:t.a}
+  },
+  expand_t1: () => {
+    const a=_pick([2,3,4,5,6,7]),c=_rand(1,9),sg=_pick(['+','−'])
+    const ans = sg==='+' ? `${a}x + ${a*c}` : `${a}x − ${a*c}`
+    return {tier:1,type:'std',q:`Expand: ${a}(x ${sg} ${c})`,a:ans}
+  },
+  expand_neg_t1: () => {
+    const a=_rand(2,8),c=_rand(1,9),sg=_pick(['+','−'])
+    const ans = sg==='+' ? `−${a}x − ${a*c}` : `−${a}x + ${a*c}`
+    return {tier:1,type:'std',q:`Expand: −${a}(x ${sg} ${c})`,a:ans}
+  },
+  expand_t2: () => {
+    const a=_rand(2,5),b=_rand(1,6),c=_rand(2,5),d=_rand(1,6)
+    return {tier:2,type:'std',q:`Expand and simplify: ${a}(x + ${b}) + ${c}(x + ${d})`,a:`${a+c}x + ${a*b+c*d}`}
+  },
+  binomial_t2: () => {
+    const a=_rand(1,6),b=_rand(1,6)
+    return {tier:2,type:'std',q:`Expand: (x + ${a})(x + ${b})`,a:`x² + ${a+b}x + ${a*b}`}
+  },
+  eq_t1: () => {
+    const x=_rand(-8,8),a=_rand(2,8),b=_rand(-15,15)
+    return {tier:1,type:'std',q:`Solve: ${a}x + ${b} = ${a*x+b}`,a:`x = ${x}`}
+  },
+  eq_t2: () => {
+    const x=_rand(-6,6),a=_rand(2,6),b=_rand(2,6),c=_rand(-8,8)
+    return {tier:2,type:'std',q:`Solve: ${a}(x + ${b}) + ${c} = ${a*(x+b)+c}`,a:`x = ${x}`}
+  },
+  sub_t1: () => {
+    const a=_rand(2,9),b=_rand(-5,5),x=_pick([-3,-2,-1,1,2,3,4])
+    const t=_pick([
+      {q:`${a}x + ${b}`,fn:x=>a*x+b},
+      {q:`x² + ${b}`,fn:x=>x*x+b},
+      {q:`−${a}x + ${b}`,fn:x=>-a*x+b},
+    ])
+    return {tier:1,type:'std',q:`Evaluate ${t.q} when x = ${x}`,a:`${t.fn(x)}`}
+  },
+  idx_mult_t1: () => {
+    const base=_pick(['x','a','m','p']),p1=_rand(2,6),p2=_rand(2,6)
+    return {tier:1,type:'std',q:`Simplify: ${base}^${p1} × ${base}^${p2}`,a:`${base}^${p1+p2}`}
+  },
+  idx_div_t1: () => {
+    const base=_pick(['x','a','m']),p1=_rand(4,9),p2=_rand(1,p1-1)
+    return {tier:1,type:'std',q:`Simplify: ${base}^${p1} ÷ ${base}^${p2}`,a:`${base}^${p1-p2}`}
+  },
+  idx_coeff_t2: () => {
+    const b=_pick(['x','a','m']),c1=_rand(2,6),p1=_rand(2,5),c2=_rand(2,6),p2=_rand(2,5)
+    return {tier:2,type:'std',q:`Simplify: ${c1}${b}^${p1} × ${c2}${b}^${p2}`,a:`${c1*c2}${b}^${p1+p2}`}
+  },
+  zero_t1: () => {
+    const base=_pick(['x','a','(2m)','(3y)'])
+    return {tier:1,type:'std',q:`Evaluate: ${base}⁰`,a:`1`}
+  },
+  neg_idx_t1: () => {
+    const b=_pick([2,3,4,5]),p=_rand(1,4)
+    return {tier:1,type:'std',q:`Evaluate: ${b}^−${p}`,a:`1/${Math.pow(b,p)}`}
+  },
+  sci_t1: () => {
+    const n=_rand(10000,9999999)
+    const exp = Math.floor(Math.log10(n))
+    const coeff = (n/Math.pow(10,exp)).toFixed(2).replace(/\.?0+$/,'')
+    return {tier:1,type:'std',q:`Write in scientific notation: ${n}`,a:`${coeff} × 10^${exp}`}
+  },
+  surd_t1: () => {
+    const a=_pick([2,3,4,5,6,7]),k=_pick([2,3,5,6,7])
+    return {tier:1,type:'std',q:`Simplify: √${a*a*k}`,a:`${a}√${k}`}
+  },
+  perc_t1: () => {
+    const p=_pick([5,10,12.5,15,20,25,30,50]),amt=_pick([20,40,60,80,100,120,150,200,250,400])
+    const ans=p*amt/100
+    return {tier:1,type:'std',q:`Find ${p}% of $${amt}`,a:`$${ans%1===0?ans:ans.toFixed(2)}`}
+  },
+  perc_t2: () => {
+    const p=_pick([5,10,15,20,25]),amt=_pick([80,100,120,150,200,250,300,400]),dir=_pick(['Increase','Decrease'])
+    const ans=dir==='Increase'?amt*(1+p/100):amt*(1-p/100)
+    return {tier:2,type:'std',q:`${dir} $${amt} by ${p}%`,a:`$${ans%1===0?ans:ans.toFixed(2)}`}
+  },
+  frac_t1: () => {
+    const t=_pick([
+      () => { const d1=_pick([2,3,4,5,6]),n1=_rand(1,d1-1),d2=_pick([2,3,4,5,6]),n2=_rand(1,d2-1); const lcd=d1*d2/_gcd(d1,d2); return {q:`${_frac(n1,d1)} + ${_frac(n2,d2)}`,a:_frac(n1*(lcd/d1)+n2*(lcd/d2),lcd)} },
+      () => { const d1=_pick([2,3,4,5]),n1=_rand(1,d1-1),d2=_pick([2,3,4,5]),n2=_rand(1,d2-1); const [rn,rd]=_simplify(n1*n2,d1*d2); return {q:`${_frac(n1,d1)} × ${_frac(n2,d2)}`,a:_frac(rn,rd)} },
+    ])()
+    return {tier:1,type:'std',q:`Calculate: ${t.q} =`,a:`${t.a}`}
+  },
+  grad_t1: () => {
+    const x1=_rand(-4,3),y1=_rand(-4,4),run=_pick([1,2,3,4,-1,-2,-3]),rise=_rand(-5,5)
+    if(rise===0&&run===0) return null
+    const [gn,gd]=_simplify(rise,run)
+    return {tier:1,type:'std',q:`Gradient through (${x1},${y1}) and (${x1+run},${y1+rise})`,a:gd===1?`${gn}`:`${gn}/${gd}`}
+  },
+  pyth_t1: () => {
+    const triples=[[3,4,5],[5,12,13],[8,15,17],[7,24,25],[6,8,10],[9,12,15]]
+    const [a,b,c]=_pick(triples),sc=_pick([1,1,2])
+    return {tier:1,type:'std',q:`Pythagoras: a=${a*sc}, b=${b*sc}. Find c.`,a:`c = ${c*sc}`}
+  },
+  pyth_short_t1: () => {
+    const triples=[[3,4,5],[5,12,13],[8,15,17],[6,8,10]]
+    const [a,b,c]=_pick(triples)
+    return {tier:1,type:'std',q:`Pythagoras: c=${c}, b=${b}. Find a.`,a:`a = ${a}`}
+  },
+  area_t1: () => {
+    const t=_pick([
+      () => { const l=_rand(3,15),w=_rand(2,12); return {q:`Area of rectangle: ${l}×${w} cm`,a:`${l*w} cm²`} },
+      () => { const b=_rand(4,16),h=_rand(3,12); return {q:`Area of triangle: base ${b}, height ${h}`,a:`${b*h/2} cm²`} },
+      () => { const r=_rand(2,9); return {q:`Area of circle: r = ${r} cm (nearest whole)`,a:`${Math.round(Math.PI*r*r)} cm²`} },
+    ])()
+    return {tier:1,type:'std',q:t.q,a:t.a}
+  },
+  si_t1: () => {
+    const P=_pick([500,1000,2000,5000]),r=_pick([3,4,5,6,8]),t=_pick([1,2,3,4])
+    return {tier:1,type:'std',q:`SI: P=$${P}, r=${r}%, t=${t}yr. Find I.`,a:`$${P*r*t/100}`}
+  },
+  mean_t1: () => {
+    const n=_pick([4,5,6]),vals=Array.from({length:n},()=>_rand(2,20))
+    const sum=vals.reduce((a,b)=>a+b,0),mean=sum/n
+    return {tier:1,type:'std',q:`Mean of: ${vals.join(', ')}`,a:`${mean%1===0?mean:mean.toFixed(1)}`}
+  },
+  prob_t1: () => {
+    const total=_pick([5,6,8,10,12,20]),fav=_rand(1,Math.floor(total/2))
+    return {tier:1,type:'std',q:`${fav} favourable out of ${total} equally likely outcomes. P =`,a:`${fav}/${total}`}
+  },
+  ineq_t1: () => {
+    const a=_rand(2,8),b=_rand(-10,10),op=_pick(['<','≤','>','≥']),rhs=_rand(-5,20)
+    const xVal=((rhs-b)/a).toFixed(2).replace(/\.0+$/,'')
+    const ansOp=op==='<'?'<':op==='≤'?'≤':op==='>'?'>':'≥'
+    return {tier:1,type:'std',q:`Solve: ${a}x + ${b} ${op} ${rhs}`,a:`x ${ansOp} ${xVal}`}
+  },
+}
+
+// Map VC codes / topics to generator keys
+const _SKILL_MAP = {
+  'VC2M9N01':['bidmas_t1','bidmas_t2'], 'VC2M9N02':['bidmas_t1'],
+  'VC2M9N04':['frac_t1'], 'VC2M9N07':['perc_t1','perc_t2'],
+  'VC2M9A01':['sub_t1'], 'VC2M9A02':['sub_t1','expand_t1'],
+  'VC2M9A03':['expand_t1','expand_neg_t1','expand_t2','binomial_t2'],
+  'VC2M9A04':['eq_t1','eq_t2'], 'VC2M9A04a':['eq_t1','eq_t2'],
+  'VC2M9A04b':['eq_t2'], 'VC2M9A05':['ineq_t1'],
+  'VC2M9A08d':['grad_t1'], 'VC2M9A08f':['eq_t1'],
+  'VC2M9N11a':['idx_mult_t1'], 'VC2M9N11b':['idx_mult_t1','idx_div_t1','idx_coeff_t2'],
+  'VC2M9N11c':['zero_t1'], 'VC2M9N11e':['neg_idx_t1'],
+  'VC2M9N12a':['sci_t1'], 'VC2M9N13a':['surd_t1'],
+  'VC2M9M01a':['pyth_t1'], 'VC2M9M01b':['pyth_short_t1'],
+  'VC2M9M03d':['area_t1'], 'VC2M9M05a':['si_t1'],
+  'VC2M9P01a':['prob_t1'], 'VC2M9D01b':['mean_t1'],
+}
+const _TOPIC_MAP = {
+  'integer':['bidmas_t1','bidmas_t2'], 'bidmas':['bidmas_t1','bidmas_t2'],
+  'rounding':['bidmas_t1'], 'fraction':['frac_t1'], 'percentage':['perc_t1','perc_t2'],
+  'substitut':['sub_t1'], 'expand':['expand_t1','expand_neg_t1','expand_t2','binomial_t2'],
+  'equation':['eq_t1','eq_t2'], 'inequalit':['ineq_t1'],
+  'index':['idx_mult_t1','idx_div_t1','zero_t1','neg_idx_t1'],
+  'indices':['idx_mult_t1','idx_div_t1','zero_t1','neg_idx_t1'],
+  'scientific':['sci_t1'], 'surd':['surd_t1'],
+  'pythagoras':['pyth_t1','pyth_short_t1'], 'trigonometr':['pyth_t1'],
+  'area':['area_t1'], 'volume':['area_t1'], 'gradient':['grad_t1'],
+  'probability':['prob_t1'], 'mean':['mean_t1'], 'interest':['si_t1'],
+}
+
+const _TIER_TARGETS = {1:6, 2:6, 3:2, 4:1}
+
+function augmentWithGenerated(skill, bankedQuestions) {
+  // Get generator keys for this skill
+  const vc = (skill.vc_code || '').trim()
+  let keys = _SKILL_MAP[vc] || []
+  if (!keys.length) {
+    const topic = (skill.topic || skill.skill_name || '').toLowerCase()
+    for (const [kw, ks] of Object.entries(_TOPIC_MAP)) {
+      if (topic.includes(kw)) { keys = ks; break }
+    }
+  }
+  if (!keys.length) return bankedQuestions  // no generators — return as-is
+
+  _gseed = Date.now() + Math.random() * 999999  // reseed for variety
+
+  const byTier = {1:[],2:[],3:[],4:[]}
+  bankedQuestions.forEach(q => { if(byTier[q.tier]) byTier[q.tier].push(q) })
+
+  const result = [...bankedQuestions]
+
+  // Only auto-generate for T1 and T2
+  for (const tier of [1, 2]) {
+    const needed = _TIER_TARGETS[tier] - byTier[tier].length
+    if (needed <= 0) continue
+    let added = 0, attempts = 0
+    while (added < needed && attempts < needed * 8) {
+      attempts++
+      const key = _pick(keys)
+      const gen = _GENS[key]
+      if (!gen) continue
+      const q = gen()
+      if (!q || q.tier !== tier) continue
+      result.push({ ...q, id: `gen_${tier}_${Date.now()}_${attempts}`, generated: true, skill_id: skill.id })
+      added++
+    }
+  }
+  return result
+}
+// ─────────────────────────────────────────────────────────────
 // Store generated slides globally so Present page can access them
 export let CURRENT_SLIDES = []
 export function setCurrentSlides(s) { CURRENT_SLIDES = s }
