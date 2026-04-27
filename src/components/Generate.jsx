@@ -16,6 +16,22 @@ const TIER_FULL  = ['', 'Foundation', 'Core', 'Extension', 'Challenge']
 const QTYPE_LABELS = { std: 'Std', mc: 'MC', tf: 'T/F', fill: 'Fill', worded: 'Word', error: 'Error', show: 'Show' }
 const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(),0,0)) / 86400000)
 
+// Generate a number chain challenge (start → operations → target)
+function generateChain() {
+  const chains = [
+    'Start: 3\n× 4 → − 7 → × 2 → + 1 = ?\n(Answer: 19)',
+    'Start: 48\n÷ 6 → × 3 → − 5 → + 8 = ?\n(Answer: 27)',
+    'Start: 5\n² → − 7 → × 2 → ÷ 6 = ?\n(Answer: 6)',
+    'Start: 100\n÷ 4 → + 17 → × 2 → − 9 = ?\n(Answer: 57)',
+    'Start: 7\n× 8 → − 16 → ÷ 4 → + 3 = ?\n(Answer: 15)',
+    'Start: 36\n√  → × 7 → − 9 → ÷ 3 = ?\n(Answer: 11)',
+    'Start: 2\n³ → + 17 → ÷ 5 → × 4 = ?\n(Answer: 20)',
+    'Start: 15\n× 3 → − 5 → ² → ÷ 4 = ?\n(Answer: 400)',
+  ]
+  const day = Math.floor(Date.now() / 86400000)
+  return chains[day % chains.length]
+}
+
 export default function Generate() {
   const { user } = useAuth()
   const { settings } = useSettings()
@@ -49,8 +65,8 @@ export default function Generate() {
   async function loadClassData(classId) {
     const [csRes, skillsRes, qRes] = await Promise.all([
       supabase.from('class_skills').select(`*, skill:skills(*)`).eq('class_id', classId),
-      supabase.from('skills').select('*'),
-      supabase.from('questions').select('*')
+      supabase.from('skills').select('*').range(0, 9999),
+      supabase.from('questions').select('*').range(0, 9999)
     ])
     setClassSkills(csRes.data || [])
     setSkills(skillsRes.data || [])
@@ -80,6 +96,7 @@ export default function Generate() {
     const f = FOUNDATIONAL[idx % FOUNDATIONAL.length]
     return {
       id: 'fndl-' + idx,
+      type: 'tiered',  // warm-up shows all questions tiered
       skill: { skill_name: f.label, strand: f.strand, year_level: 'F', topic: 'Foundational', btb_easy: f.btbEasy, btb_hard: f.btbHard },
       classSkill: null,
       tag: '⚡ Warm-up',
@@ -97,7 +114,7 @@ export default function Generate() {
 
     // Reload fresh
     const { data: cs } = await supabase.from('class_skills').select(`*, skill:skills(*)`).eq('class_id', activeClass)
-    const { data: qs } = await supabase.from('questions').select('*')
+    const { data: qs } = await supabase.from('questions').select('*').range(0, 9999)
     const allClassSkills = cs || []
     const allQuestions = qs || []
 
@@ -130,6 +147,7 @@ export default function Generate() {
       const f = FOUNDATIONAL[(dayOfYear + i) % FOUNDATIONAL.length]
       built.push({
         id: `fndl-${i}`,
+        type: i < 2 ? 'tiered' : 'single',  // first 2 warm-ups = tiered, rest = single
         skill: { skill_name: f.label, strand: f.strand, year_level: 'F', topic: 'Foundational', btb_easy: f.btbEasy, btb_hard: f.btbHard },
         classSkill: null, tag: '⚡ Warm-up', isFoundational: true,
         questions: [...f.questions], btbEasy: f.btbEasy, btbHard: f.btbHard,
@@ -140,7 +158,8 @@ export default function Generate() {
     upcomingPrereqs.forEach(c => {
       const sk = c.skill || {}
       built.push({ id: c.id, skill: sk, classSkill: c, tag: c._tag,
-        questions: (qMap[sk.id] || []).sort((a,b) => a.tier-b.tier),
+        type: 'single',
+        questions: (qMap[sk.id] || []).filter(q => q.tier <= 2).slice(0, 5),
         btbEasy: sk.btb_easy || '', btbHard: sk.btb_hard || '' })
     })
 
@@ -148,7 +167,7 @@ export default function Generate() {
     retrieval.forEach(c => {
       const sk = c.skill || {}
       built.push({ id: c.id + '-ret', skill: sk, classSkill: c, tag: '🧠 Retrieval',
-        isWC: false,
+        type: 'tiered',  // retrieval = full tiered slide
         questions: (qMap[sk.id] || []).sort((a,b) => a.tier-b.tier),
         btbEasy: sk.btb_easy || '', btbHard: sk.btb_hard || '' })
     })
@@ -159,14 +178,14 @@ export default function Generate() {
       const sk = c.skill || {}
       const mastery = c.mastery || 1
       const slideQs = (qMap[sk.id] || []).sort((a,b) => a.tier-b.tier)
-      // Only make WC if teacher has explicitly rated 1 or 2 multiple times
+      // Tiered slide for all due topics (10-20 questions)
       const history = Array.isArray(c.rating_history) ? c.rating_history : []
       const recentLowRatings = history.slice(-3).filter(r => r.rating <= 2).length
-      const forceWC = recentLowRatings >= 2 // class has struggled at least twice recently
       built.push({
         id: c.id, skill: sk, classSkill: c,
-        tag: mastery <= 2 ? '⚠ Low mastery — watch this one' : '',
-        isWC: forceWC, // only WC if repeatedly struggling
+        type: 'tiered',  // show all questions in tier groups
+        tag: mastery <= 2 ? '⚠ Low mastery' : '',
+        isWC: recentLowRatings >= 2,  // for teacher reference only
         questions: slideQs,
         btbEasy: sk.btb_easy || '', btbHard: sk.btb_hard || ''
       })
@@ -346,14 +365,18 @@ export default function Generate() {
             💣 Beat the Bomb — {btbSecs}s
           </div>
           {slides[slides.length - 1] && (
-            <div className="grid-2">
-              <div style={{ background: 'rgba(74,240,160,.05)', border: '1px solid rgba(74,240,160,.3)', borderRadius: 'var(--rs)', padding: 14 }}>
-                <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', color: 'var(--grn)', marginBottom: 8 }}>⚡ Standard</div>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 13 }}>{slides[slides.length - 1].btbEasy}</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+              <div style={{ background: 'rgba(74,240,160,.05)', border: '1px solid rgba(74,240,160,.3)', borderRadius: 'var(--rs)', padding: 12 }}>
+                <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', color: 'var(--grn)', marginBottom: 6 }}>⚡ Standard</div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, lineHeight: 1.5 }}>{slides[slides.length - 1].btbEasy}</div>
               </div>
-              <div style={{ background: 'rgba(240,74,107,.05)', border: '1px solid rgba(240,74,107,.3)', borderRadius: 'var(--rs)', padding: 14 }}>
-                <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', color: 'var(--red)', marginBottom: 8 }}>💀 Elite</div>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 13 }}>{slides[slides.length - 1].btbHard}</div>
+              <div style={{ background: 'rgba(240,74,107,.05)', border: '1px solid rgba(240,74,107,.3)', borderRadius: 'var(--rs)', padding: 12 }}>
+                <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', color: 'var(--red)', marginBottom: 6 }}>💀 Elite</div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, lineHeight: 1.5 }}>{slides[slides.length - 1].btbHard}</div>
+              </div>
+              <div style={{ background: 'rgba(155,89,182,.05)', border: '1px solid rgba(155,89,182,.3)', borderRadius: 'var(--rs)', padding: 12 }}>
+                <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', color: 'var(--pur)', marginBottom: 6 }}>🔢 Number Chain</div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, lineHeight: 1.7, color: 'var(--td)' }}>{slides[slides.length - 1].btbChain || generateChain()}</div>
               </div>
             </div>
           )}

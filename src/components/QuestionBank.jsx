@@ -40,8 +40,8 @@ export default function QuestionBank() {
   async function loadAll() {
     setLoading(true)
     const [{ data: sk }, { data: qs }] = await Promise.all([
-      supabase.from('skills').select('*').order('year_level,strand,topic,skill_name'),
-      supabase.from('questions').select('*').order('tier,id')
+      supabase.from('skills').select('*').order('year_level,strand,topic,skill_name').range(0, 9999),
+      supabase.from('questions').select('*').order('tier,id').range(0, 9999)
     ])
     setSkills(sk || [])
     setQuestions(qs || [])

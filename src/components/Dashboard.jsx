@@ -39,7 +39,7 @@ export default function Dashboard() {
   }
 
   async function loadSkills() {
-    const { data } = await supabase.from('skills').select('*').order('year_level,strand,skill_name')
+    const { data } = await supabase.from('skills').select('*').order('year_level,strand,skill_name').range(0, 9999)
     setSkills(data || [])
   }
 
@@ -333,7 +333,7 @@ function AddTopicModal({ skills, classId, onClose, onAdded }) {
   const [strand, setStrand] = useState('')
   const [topic, setTopic] = useState('')
   const [skillId, setSkillId] = useState('')
-  const [daysAgo, setDaysAgo] = useState('0')
+  const [teachDate, setTeachDate] = useState(new Date().toISOString().split('T')[0])
 
   const years = [...new Set(skills.map(s => s.year_level))].sort()
   const strands = [...new Set(skills.filter(s => s.year_level == yr).map(s => s.strand))].sort()
@@ -343,9 +343,15 @@ function AddTopicModal({ skills, classId, onClose, onAdded }) {
 
   async function add() {
     if (!skillId || !classId) return
-    const lastReviewed = daysAgo > 0 ? new Date(Date.now() - daysAgo * 86400000).toISOString() : new Date().toISOString()
+    const d = new Date(teachDate)
+    const isUpcoming = d > new Date()
     const { error } = await supabase.from('class_skills').insert({
-      class_id: classId, skill_id: skillId, mastery: 1, last_reviewed: lastReviewed
+      class_id: classId,
+      skill_id: skillId,
+      mastery: 1,
+      last_reviewed: isUpcoming ? null : d.toISOString(),
+      scheduled_date: d.toISOString(),
+      from_unit_plan: isUpcoming
     })
     if (!error) { onAdded(); onClose() }
     else alert('Could not add — this skill may already be in the schedule.')
@@ -393,15 +399,12 @@ function AddTopicModal({ skills, classId, onClose, onAdded }) {
           </div>
         )}
         <div className="field">
-          <label>When was this taught?</label>
-          <select className="input select" value={daysAgo} onChange={e => setDaysAgo(e.target.value)}>
-            <option value="0">Today</option>
-            <option value="1">Yesterday</option>
-            <option value="3">3 days ago</option>
-            <option value="7">About a week ago</option>
-            <option value="14">2 weeks ago</option>
-            <option value="30">About a month ago</option>
-          </select>
+          <label>Teaching date (past or upcoming)</label>
+          <input className="input" type="date" value={teachDate}
+            onChange={e => setTeachDate(e.target.value)} />
+          <div style={{ fontSize:10, color:'var(--tm)', marginTop:4 }}>
+            Set a future date to schedule upcoming topics for prereq review
+          </div>
         </div>
         <div className="modal-footer">
           <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
