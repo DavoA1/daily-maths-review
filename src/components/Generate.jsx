@@ -63,14 +63,31 @@ export default function Generate() {
   }
 
   async function loadClassData(classId) {
-    const [csRes, skillsRes, qRes] = await Promise.all([
-      supabase.from('class_skills').select(`*, skill:skills(*)`).eq('class_id', classId),
-      supabase.from('skills').select('*').range(0, 9999),
-      supabase.from('questions').select('*').range(0, 9999)
-    ])
-    setClassSkills(csRes.data || [])
-    setSkills(skillsRes.data || [])
-    setQuestions(qRes.data || [])
+    // Fetch class skills — skill data is embedded via the join (skill:skills(*))
+    // so we don't need a separate skills table query at all
+    const { data: csData } = await supabase
+      .from('class_skills')
+      .select(`*, skill:skills(*)`)
+      .eq('class_id', classId)
+
+    const cs = csData || []
+
+    // Only fetch questions for the specific skills in this class.
+    // This naturally scopes to the right year level + any earlier prerequisites
+    // that have been added to this class's schedule.
+    const skillIds = cs.map(c => c.skill_id).filter(Boolean)
+
+    const { data: qData } = skillIds.length > 0
+      ? await supabase
+          .from('questions')
+          .select('id,skill_id,tier,question_type,question_text,answer_text,vc_code,image_url')
+          .in('skill_id', skillIds)
+      : { data: [] }
+
+    const qs = qData || []
+    setClassSkills(cs)
+    setQuestions(qs)
+    return { classSkills: cs, questions: qs }
   }
 
   function getQuestionsForSkill(skillId) {
@@ -79,11 +96,11 @@ export default function Generate() {
 
   // Build a SLIDE SET for a skill:
   // Returns an array of slides — spotlight singles + final full bank
-  function buildSlideSet(cs, tag = '', opts = {}) {
+  function buildSlideSet(cs, tag = '', opts = {}, qMap = {}) {
     const sk = cs.skill || {}
-    const bankedQs = getQuestionsForSkill(sk.id || cs.skill_id)
+    const bankedQs = (qMap[sk.id || cs.skill_id] || []).sort((a,b) => a.tier - b.tier)
     // Augment with algorithmically generated questions for tiers that have < 4 questions
-    const allQs = augmentWithGenerated(sk, bankedQs, 4).sort((a, b) => a.tier - b.tier)
+    const allQs = augmentWithGenerated(sk, bankedQs).sort((a, b) => a.tier - b.tier)
     const btbEasy = sk.btb_easy || ''
     const btbHard = sk.btb_hard || ''
     const btbChain = sk.btb_chain || ''
@@ -138,10 +155,10 @@ export default function Generate() {
   }
 
   // Legacy single-slide builder (used for retrieval/prereq where we don't want full sets)
-  function buildSingleSlide(cs, tag = '', opts = {}) {
+  function buildSingleSlide(cs, tag = '', opts = {}, qMap = {}) {
     const sk = cs.skill || {}
-    const banked = getQuestionsForSkill(sk.id || cs.skill_id)
-    const qs = augmentWithGenerated(sk, banked, 4).sort((a, b) => a.tier - b.tier)
+    const banked = (qMap[sk.id || cs.skill_id] || []).sort((a,b) => a.tier - b.tier)
+    const qs = augmentWithGenerated(sk, banked).sort((a, b) => a.tier - b.tier)
     return {
       id: cs.id,
       skill: sk,
@@ -175,16 +192,16 @@ export default function Generate() {
   async function doGenerate() {
     if (!activeClass) return
     setLoading(true)
-    await loadClassData(activeClass)
-
-    // Reload fresh
-    const { data: cs } = await supabase.from('class_skills').select(`*, skill:skills(*)`).eq('class_id', activeClass)
-    const { data: qs } = await supabase.from('questions').select('*').range(0, 9999)
-    const allClassSkills = cs || []
-    const allQuestions = qs || []
+    // Single fetch — loadClassData returns fresh data directly (no React state timing issues)
+    const freshData = await loadClassData(activeClass)
+    const allClassSkills = freshData.classSkills
+    const allQuestions = freshData.questions
 
     const qMap = {}
     allQuestions.forEach(q => { if (!qMap[q.skill_id]) qMap[q.skill_id] = []; qMap[q.skill_id].push(q) })
+
+    // Override getQuestionsForSkill to use fresh qMap (not stale React state)
+    const getQs = (skillId) => (qMap[skillId] || []).sort((a,b) => a.tier - b.tier)
 
     const due = getDueConcepts(allClassSkills, maxTopics)
     const upcoming = getUpcomingSkills(allClassSkills, 7)
@@ -228,7 +245,7 @@ export default function Generate() {
     // 2. Upcoming prereqs — just a quick spotlight set (no full bank, keep it brief)
     upcomingPrereqs.forEach(c => {
       const sk = c.skill || {}
-      const qs = skillQs(sk).filter(q => q.tier <= 2).slice(0, 3)
+      const qs = (qMap[sk.id] || []).filter(q => q.tier <= 2).slice(0, 3)
       qs.forEach((q, i) => built.push({
         id: `${c.id}-pre${i}`, skill: sk, classSkill: c, tag: c._tag,
         singleMode: true, isBank: false, isSpotlight: true,
@@ -243,7 +260,7 @@ export default function Generate() {
       built.push({
         id: `${c.id}-ret`, skill: sk, classSkill: c, tag: '🧠 Retrieval',
         singleMode: false, isBank: true,
-        questions: skillQs(sk),
+        questions: (qMap[sk.id] || []).sort((a,b) => a.tier - b.tier),
         btbEasy: sk.btb_easy || '', btbHard: sk.btb_hard || '', btbChain: sk.btb_chain || '',
       })
     })
@@ -257,7 +274,7 @@ export default function Generate() {
       const history = Array.isArray(c.rating_history) ? c.rating_history : []
       const lowStreak = history.slice(-3).filter(r => r.rating <= 2).length >= 2
       const tag = mastery <= 2 ? '⚠ Low mastery' : ''
-      const slideSet = buildSlideSet(c, tag, { isWC: lowStreak })
+      const slideSet = buildSlideSet(c, tag, { isWC: lowStreak }, qMap)
       built.push(...slideSet)
     })
 
