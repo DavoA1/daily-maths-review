@@ -24,6 +24,7 @@ export async function seedAll() {
         prerequisites: skill.prereqs || skill.prerequisites || [],
         btb_easy: skill.btbEasy || skill.btb_easy || '',
         btb_hard: skill.btbHard || skill.btb_hard || '',
+        btb_chain: skill.btbChain || skill.btb_chain || '',
         is_shared: true,
         created_by: user.id
       }, { onConflict: 'year_level,strand,topic,skill_name' })
@@ -48,6 +49,7 @@ export async function seedAll() {
       answer_text: q.a,
       question_type: q.type || 'std',
       vc_code: q.vc || skill.vc || null,
+      image_url: q.image_url || null,
       is_shared: true,
       created_by: user.id
     }))
