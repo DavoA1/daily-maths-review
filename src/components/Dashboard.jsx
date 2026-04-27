@@ -402,9 +402,14 @@ function AddTopicModal({ skills, classId, onClose, onAdded }) {
           <label>Teaching date (past or upcoming)</label>
           <input className="input" type="date" value={teachDate}
             onChange={e => setTeachDate(e.target.value)} />
-          <div style={{ fontSize:10, color:'var(--tm)', marginTop:4 }}>
-            Set a future date to schedule upcoming topics for prereq review
-          </div>
+          {teachDate && (() => {
+            const d = new Date(teachDate)
+            const today = new Date(); today.setHours(0,0,0,0)
+            const diff = Math.round((d - today) / 86400000)
+            if (diff > 0) return <div style={{ fontSize:11, color:'#7c3aed', marginTop:4 }}>📅 Upcoming topic — scheduled {diff} day{diff!==1?'s':''} from now</div>
+            if (diff === 0) return <div style={{ fontSize:11, color:'#059669', marginTop:4 }}>✅ Teaching today</div>
+            return <div style={{ fontSize:11, color:'var(--tm)', marginTop:4 }}>📘 Taught {Math.abs(diff)} day{Math.abs(diff)!==1?'s':''} ago</div>
+          })()}
         </div>
         <div className="modal-footer">
           <button className="btn btn-secondary" onClick={onClose}>Cancel</button>

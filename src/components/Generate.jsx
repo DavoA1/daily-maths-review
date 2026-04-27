@@ -86,9 +86,11 @@ export default function Generate() {
       classSkill: cs,
       tag,
       isWC,
+      singleMode: false,   // tiered by default — teacher can toggle
       questions: [...qs],
       btbEasy: sk.btb_easy || '',
       btbHard: sk.btb_hard || '',
+      btbChain: sk.btb_chain || '',
     }
   }
 
@@ -166,7 +168,7 @@ export default function Generate() {
     // 3. Long-term retrieval
     retrieval.forEach(c => {
       const sk = c.skill || {}
-      built.push({ id: c.id + '-ret', skill: sk, classSkill: c, tag: '🧠 Retrieval',
+      built.push({ id: c.id + '-ret', skill: sk, classSkill: c, tag: '🧠 Retrieval', singleMode: false,
         type: 'tiered',  // retrieval = full tiered slide
         questions: (qMap[sk.id] || []).sort((a,b) => a.tier-b.tier),
         btbEasy: sk.btb_easy || '', btbHard: sk.btb_hard || '' })
@@ -349,9 +351,13 @@ export default function Generate() {
                 <button onClick={() => openAddQ(si)} style={{ flex: 1, padding: '8px', border: '1px dashed var(--b2)', borderRadius: 'var(--rs)', background: 'transparent', color: 'var(--tm)', fontSize: 11, cursor: 'pointer', transition: 'all .15s' }}>
                   + Add question
                 </button>
-                <button onClick={() => setSlides(s => { const n = [...s]; n[si] = {...n[si], isWC: !n[si].isWC}; setCurrentSlides(n); return n })}
+                <button onClick={() => setSlides(s => { const n = [...s]; n[si] = {...n[si], isWC: !n[si].isWC, singleMode: !n[si].isWC}; setCurrentSlides(n); return n })}
                   style={{ padding: '8px 14px', border: `1px solid ${slides[si]?.isWC ? 'var(--pur)' : 'var(--b2)'}`, borderRadius: 'var(--rs)', background: slides[si]?.isWC ? 'rgba(160,74,240,.12)' : 'transparent', color: slides[si]?.isWC ? 'var(--pur)' : 'var(--tm)', fontSize: 11, cursor: 'pointer', transition: 'all .15s', whiteSpace: 'nowrap' }}>
                   {slides[si]?.isWC ? '🎯 Whole Class ✓' : 'Switch to Whole Class'}
+                </button>
+                <button onClick={() => setSlides(s => { const n = [...s]; n[si] = {...n[si], singleMode: !n[si].singleMode}; setCurrentSlides(n); return n })}
+                  style={{ padding: '8px 14px', border: `1px solid ${slides[si]?.singleMode ? 'var(--blu)' : 'var(--b2)'}`, borderRadius: 'var(--rs)', background: slides[si]?.singleMode ? 'rgba(74,200,240,.12)' : 'transparent', color: slides[si]?.singleMode ? 'var(--blu)' : 'var(--tm)', fontSize: 11, cursor: 'pointer', transition: 'all .15s', whiteSpace: 'nowrap' }}>
+                  {slides[si]?.singleMode ? '1️⃣ Single Q Mode ✓' : '1️⃣ Single Q Mode'}
                 </button>
               </div>
             </div>

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../lib/auth.jsx'
 import { supabase } from '../lib/supabase.js'
 import { seedAll } from '../lib/seed.js'
+import { VC2_CURRICULUM } from '../lib/vc2curriculum.js'
 
 function downloadCSV(filename, rows, headers) {
   const escape = v => { const s = String(v??'').replace(/"/g,'""'); return s.includes(',')||s.includes('\n')||s.includes('"') ? `"${s}"` : s }
@@ -15,6 +16,87 @@ function downloadCSV(filename, rows, headers) {
 const QTYPE_LABELS = { std:'Standard', mc:'Multiple Choice', tf:'True/False', fill:'Fill in Blank', worded:'Word Problem', error:'Error Analysis', show:'Show Working' }
 const TIER_CLS = ['','t1','t2','t3','t4']
 const TIER_FULL = ['','Foundation','Core','Extension','Challenge']
+
+
+// ── IMAGE FIELD COMPONENT ──
+// Supports: URL paste, file upload (to Supabase Storage or as base64 fallback)
+function ImageField({ value, onChange, compact = false }) {
+  const [uploading, setUploading] = useState(false)
+  const [mode, setMode] = useState('url') // 'url' | 'file'
+  const fileRef = useState(null)
+
+  async function handleFile(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    try {
+      // Try Supabase Storage first
+      const filename = `q_${Date.now()}_${file.name.replace(/[^a-z0-9.]/gi,'_')}`
+      const { data, error } = await supabase.storage
+        .from('question-images')
+        .upload(filename, file, { upsert: true })
+      if (!error) {
+        const { data: urlData } = supabase.storage.from('question-images').getPublicUrl(filename)
+        onChange(urlData.publicUrl)
+      } else {
+        // Fallback: base64
+        const reader = new FileReader()
+        reader.onload = (ev) => onChange(ev.target.result)
+        reader.readAsDataURL(file)
+      }
+    } catch {
+      // Fallback: base64
+      const reader = new FileReader()
+      reader.onload = (ev) => onChange(ev.target.result)
+      reader.readAsDataURL(file)
+    }
+    setUploading(false)
+  }
+
+  if (compact) return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+      <label style={{ fontSize: 11, color: 'var(--tm)', flexShrink: 0 }}>🖼 Image:</label>
+      <input className="input" style={{ flex: 1, minWidth: 120, fontSize: 11 }}
+        placeholder="Paste image URL..." value={value}
+        onChange={e => onChange(e.target.value)} />
+      <label style={{ padding: '4px 10px', background: 'var(--blu)', color: 'white', borderRadius: 'var(--rs)', fontSize: 11, cursor: 'pointer', fontWeight: 600, flexShrink: 0 }}>
+        {uploading ? '⏳' : '📁 Upload'}
+        <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFile} />
+      </label>
+      {value && (
+        <>
+          <img src={value} alt="" style={{ height: 32, width: 32, objectFit: 'cover', borderRadius: 4, border: '1px solid var(--b1)' }} />
+          <button onClick={() => onChange('')} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 14, padding: 2 }}>✕</button>
+        </>
+      )}
+    </div>
+  )
+
+  return (
+    <div className="field">
+      <label>Question Image (optional)</label>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+        <button className={`btn btn-sm ${mode==='url'?'btn-primary':'btn-secondary'}`} onClick={() => setMode('url')}>🔗 URL</button>
+        <button className={`btn btn-sm ${mode==='file'?'btn-primary':'btn-secondary'}`} onClick={() => setMode('file')}>📁 Upload File</button>
+      </div>
+      {mode === 'url' ? (
+        <input className="input" placeholder="https://..." value={value} onChange={e => onChange(e.target.value)} />
+      ) : (
+        <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 80, border: '2px dashed var(--b2)', borderRadius: 'var(--rs)', cursor: 'pointer', color: 'var(--tm)', fontSize: 13, background: 'var(--bg)' }}>
+          {uploading ? '⏳ Uploading...' : '📁 Click to choose image file'}
+          <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFile} />
+        </label>
+      )}
+      {value && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8, padding: '8px 10px', background: 'var(--bg)', borderRadius: 'var(--rs)', border: '1px solid var(--b1)' }}>
+          <img src={value} alt="" style={{ height: 60, maxWidth: 100, objectFit: 'contain', borderRadius: 4 }} />
+          <div style={{ flex: 1, fontSize: 11, color: 'var(--tm)', wordBreak: 'break-all' }}>{value.startsWith('data:') ? '📎 Embedded image' : value.slice(0,60)+'...'}</div>
+          <button onClick={() => onChange('')} style={{ background: 'none', border: '1px solid #ef4444', color: '#ef4444', borderRadius: 4, padding: '4px 8px', cursor: 'pointer', fontSize: 11 }}>Remove</button>
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function QuestionBank() {
   const { user } = useAuth()
@@ -30,7 +112,7 @@ export default function QuestionBank() {
   const [editQ, setEditQ] = useState(null)
   const [editData, setEditData] = useState({})
   const [showAddSkill, setShowAddSkill] = useState(false)
-  const [newSkill, setNewSkill] = useState({ year_level:9, strand:'', topic:'', skill_name:'', vc_code:'', prerequisites:'' })
+  const [newSkill, setNewSkill] = useState({ year_level:9, strand:'', topic:'', skill_name:'', vc_code:'', prerequisites:'', btb_easy:'', btb_hard:'', btb_chain:'' })
   const [toast, setToast] = useState('')
 
   useEffect(() => { loadAll() }, [])
@@ -78,7 +160,7 @@ export default function QuestionBank() {
 
   function openEdit(q) {
     setEditQ(q)
-    setEditData({ tier: q.tier, question_type: q.question_type, question_text: q.question_text, answer_text: q.answer_text, vc_code: q.vc_code || '' })
+    setEditData({ tier: q.tier, question_type: q.question_type, question_text: q.question_text, answer_text: q.answer_text, vc_code: q.vc_code || '', image_url: q.image_url || '' })
   }
 
   async function saveEdit() {
@@ -202,6 +284,7 @@ export default function QuestionBank() {
                       <span className={`badge ${TIER_CLS[q.tier]}-bg`} style={{ color: `var(--${['','grn','blu','org','red'][q.tier]})`, fontSize: 9, padding: '2px 6px', borderRadius: 3, whiteSpace: 'nowrap', marginTop: 1, flexShrink: 0 }}>T{q.tier}</span>
                       {q.question_type && q.question_type !== 'std' && <span className={`qtype-badge qt-${q.question_type}`} style={{ flexShrink: 0 }}>{q.question_type.toUpperCase()}</span>}
                       {q.vc_code && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--tm)', padding: '1px 5px', border: '1px solid var(--b1)', borderRadius: 3, flexShrink: 0 }}>{q.vc_code}</span>}
+                      {q.image_url && <img src={q.image_url} alt="" style={{ height: 28, width: 28, objectFit: 'cover', borderRadius: 4, flexShrink: 0, border: '1px solid var(--b1)' }} />}
                       <span style={{ fontFamily: 'var(--font-mono)', flex: 1, minWidth: 0, whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{q.question_text}</span>
                       <span style={{ color: 'var(--tm)', fontFamily: 'var(--font-mono)', fontSize: 11, minWidth: 80, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{q.answer_text}</span>
                       <button className="btn btn-ghost btn-sm" style={{ color: 'var(--blu)', flexShrink: 0 }} onClick={() => openEdit(q)}>Edit</button>
@@ -239,10 +322,16 @@ export default function QuestionBank() {
               <div className="field" style={{ margin: 0 }}>
                 <label>VC Code</label>
                 <input className="input" value={editData.vc_code} onChange={e => setEditData(d => ({ ...d, vc_code: e.target.value }))} />
+                {editData.vc_code && VC2_CURRICULUM[editData.vc_code] && (
+                  <div style={{ fontSize: 10, color: 'var(--tm)', marginTop: 3, lineHeight: 1.4 }}>
+                    {VC2_CURRICULUM[editData.vc_code].description.slice(0, 100)}...
+                  </div>
+                )}
               </div>
             </div>
             <div className="field"><label>Question</label><textarea className="input textarea" value={editData.question_text} onChange={e => setEditData(d => ({ ...d, question_text: e.target.value }))} /></div>
             <div className="field"><label>Answer</label><textarea className="input textarea" style={{ minHeight: 60 }} value={editData.answer_text} onChange={e => setEditData(d => ({ ...d, answer_text: e.target.value }))} /></div>
+            <ImageField value={editData.image_url || ''} onChange={url => setEditData(d => ({ ...d, image_url: url }))} />
             <div className="modal-footer">
               <button className="btn btn-secondary" onClick={() => setEditQ(null)}>Cancel</button>
               <button className="btn btn-primary" onClick={saveEdit}>Save</button>
@@ -261,8 +350,12 @@ export default function QuestionBank() {
               { label: 'Strand', key: 'strand', placeholder: 'e.g. Algebra' },
               { label: 'Topic', key: 'topic', placeholder: 'e.g. Linear Equations' },
               { label: 'Skill name', key: 'skill_name', placeholder: 'e.g. Solving two-step equations' },
-              { label: 'VC Code', key: 'vc_code', placeholder: 'e.g. VC2M9A01' },
+              { label: 'VC Code (e.g. VC2M9A01)', key: 'vc_code', placeholder: 'e.g. VC2M9A01' },
               { label: 'Prerequisites (comma separated)', key: 'prerequisites', placeholder: 'e.g. One-step equations, Inverse operations' },
+              { label: '⚡ Beat the Bomb — Standard', key: 'btb_easy', placeholder: 'e.g. Evaluate: 3x - 1 when x = 4' },
+              { label: '💀 Beat the Bomb — Elite', key: 'btb_hard', placeholder: 'e.g. Make x the subject of 2(x+a) = b' },
+              { label: '⛓ Beat the Bomb — Chain (start → ops → target)', key: 'btb_chain', placeholder: 'e.g. Start: 48
+÷6 → ×3 → −5 → +8 = ?' },
             ].map(f => (
               <div key={f.key} className="field">
                 <label>{f.label}</label>
@@ -300,7 +393,7 @@ const QTYPE_LABELS = { std:'Standard', mc:'Multiple Choice', tf:'True/False', fi
 
   async function save() {
     if (!data.question_text || !data.answer_text) return
-    const { error } = await supabase.from('questions').insert({ ...data, skill_id: skillId, is_shared: true, created_by: user.id })
+    const { error } = await supabase.from('questions').insert({ ...data, skill_id: skillId, is_shared: true, created_by: user.id, image_url: data.image_url || null })
     if (!error) { showToast('✓ Question added'); setData(d => ({ ...d, question_text: '', answer_text: '' })); setOpen(false); onAdded() }
   }
 
@@ -337,6 +430,9 @@ const QTYPE_LABELS = { std:'Standard', mc:'Multiple Choice', tf:'True/False', fi
       <div className="field" style={{ marginBottom: 8 }}>
         <label>Answer</label>
         <textarea className="input textarea" style={{ minHeight: 40 }} value={data.answer_text} onChange={e => setData(d => ({ ...d, answer_text: e.target.value }))} />
+        <div className="field" style={{ marginTop: 8 }}>
+          <ImageField value={data.image_url || ''} onChange={url => setData(d => ({ ...d, image_url: url }))} compact />
+        </div>
       </div>
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
         <button className="btn btn-secondary btn-sm" onClick={() => setOpen(false)}>Cancel</button>
