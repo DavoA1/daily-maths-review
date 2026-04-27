@@ -354,8 +354,7 @@ export default function QuestionBank() {
               { label: 'Prerequisites (comma separated)', key: 'prerequisites', placeholder: 'e.g. One-step equations, Inverse operations' },
               { label: '⚡ Beat the Bomb — Standard', key: 'btb_easy', placeholder: 'e.g. Evaluate: 3x - 1 when x = 4' },
               { label: '💀 Beat the Bomb — Elite', key: 'btb_hard', placeholder: 'e.g. Make x the subject of 2(x+a) = b' },
-              { label: '⛓ Beat the Bomb — Chain (start → ops → target)', key: 'btb_chain', placeholder: 'e.g. Start: 48
-÷6 → ×3 → −5 → +8 = ?' },
+              { label: '⛓ Beat the Bomb — Chain (start → ops → target)', key: 'btb_chain', placeholder: 'e.g. Start: 48 → ÷6 → ×3 → −5 → +8 = ?' },
             ].map(f => (
               <div key={f.key} className="field">
                 <label>{f.label}</label>
