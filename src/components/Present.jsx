@@ -10,6 +10,19 @@ const TIER_COLS = ['','#16a34a','#2563eb','#d97706','#dc2626']
 const TIER_BG   = ['','#f0fdf4','#eff6ff','#fffbeb','#fef2f2']
 const TIER_BORDER=['','#86efac','#93c5fd','#fcd34d','#fca5a5']
 
+
+// Calculate optimal columns to avoid blank cells in the grid
+// Tries to find cols where items divide evenly, allows max 1 blank in last row
+function bestCols(n, maxCols) {
+  if (n <= 0) return 1
+  if (n <= maxCols) return n  // fewer items than max — use exact count, no blanks
+  for (let c = maxCols; c >= 2; c--) {
+    if (n % c === 0) return c           // perfect fit
+    if (n % c >= c - 1) return c        // at most 1 blank in last row
+  }
+  return maxCols
+}
+
 const MODE_CONFIG = {
   whiteboard: { label: '📝 Whiteboard', colour: '#7c3aed', desc: 'Write answer on whiteboard — hold up on signal' },
   verbal:     { label: '🗣 Verbal Response', colour: '#0891b2', desc: 'Think about it — teacher will cold call or pair-share' },
@@ -361,7 +374,7 @@ function TieredSlide({ slide, showAns }) {
           const ansFont = Math.max(9, font - 2)
 
           // Column layout: T1/T2 → 3 cols (2 rows of 3); T3 → 2 cols; T4 → 1 col
-          const cols = t === 4 ? 1 : t === 3 ? 2 : qs.length <= 3 ? qs.length : 3
+          const cols = t === 4 ? 1 : t === 3 ? Math.min(qs.length, 2) : bestCols(qs.length, 3)
 
           // T1/T2 get proportionally less height (more rows), T3/T4 get more
           const flexWeight = t <= 2 ? 1.2 : t === 3 ? 1.8 : 2.2

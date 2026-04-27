@@ -1,6 +1,19 @@
 import { useState, useEffect, useRef } from 'react'
 
 const channel = new BroadcastChannel('dmr_student_view')
+
+// Calculate optimal columns to avoid blank cells in the grid
+// Tries to find cols where items divide evenly, allows max 1 blank in last row
+function bestCols(n, maxCols) {
+  if (n <= 0) return 1
+  if (n <= maxCols) return n  // fewer items than max — use exact count, no blanks
+  for (let c = maxCols; c >= 2; c--) {
+    if (n % c === 0) return c           // perfect fit
+    if (n % c >= c - 1) return c        // at most 1 blank in last row
+  }
+  return maxCols
+}
+
 const TIER_COLS = ['','#16a34a','#2563eb','#d97706','#dc2626']
 const TIER_BG   = ['','#f0fdf4','#eff6ff','#fffbeb','#fef2f2']
 const TIER_BORDER=['','#86efac','#93c5fd','#fcd34d','#fca5a5']
@@ -114,7 +127,7 @@ function SVTiered({ data }) {
           const isHighTier = t >= 3
           const font = isHighTier ? fontLg : fontSm
           const ansFont = Math.max(10, font - 2)
-          const cols = t === 4 ? 1 : t === 3 ? 2 : qs.length <= 3 ? qs.length : 3
+          const cols = t === 4 ? 1 : t === 3 ? Math.min(qs.length, 2) : bestCols(qs.length, 3)
           const flexWeight = t <= 2 ? 1.2 : t === 3 ? 2 : 2.5
 
           return (

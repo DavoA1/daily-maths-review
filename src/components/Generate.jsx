@@ -100,8 +100,15 @@ export default function Generate() {
   function buildSlideSet(cs, tag = '', opts = {}, qMap = {}) {
     const sk = cs.skill || {}
     const bankedQs = (qMap[sk.id || cs.skill_id] || []).sort((a,b) => a.tier - b.tier)
-    // Augment with algorithmically generated questions for tiers that have < 4 questions
-    const allQs = augmentWithGenerated(sk, bankedQs).sort((a, b) => a.tier - b.tier)
+    // Augment with generated questions — wrapped in try/catch so one bad generator
+    // can never crash the whole slide generation
+    let allQs = bankedQs
+    try {
+      allQs = augmentWithGenerated(sk, bankedQs).sort((a, b) => a.tier - b.tier)
+    } catch(e) {
+      console.warn('[buildSlideSet] Generator failed for', sk.skill_name, e.message)
+      allQs = bankedQs.sort((a, b) => a.tier - b.tier)
+    }
     const btbEasy = sk.btb_easy || ''
     const btbHard = sk.btb_hard || ''
     const btbChain = sk.btb_chain || ''
@@ -191,108 +198,109 @@ export default function Generate() {
   }
 
   async function doGenerate() {
-    if (!activeClass) return
+    if (!activeClass) { showToast('No class selected'); return }
     setLoading(true)
     try {
-    // Single fetch — loadClassData returns fresh data directly (no React state timing issues)
-    const freshData = await loadClassData(activeClass)
-    const allClassSkills = freshData.classSkills
-    const allQuestions = freshData.questions
+      console.log('[Generate] Starting... activeClass:', activeClass)
 
-    const qMap = {}
-    allQuestions.forEach(q => { if (!qMap[q.skill_id]) qMap[q.skill_id] = []; qMap[q.skill_id].push(q) })
+      const freshData = await loadClassData(activeClass)
+      const allClassSkills = freshData.classSkills
+      const allQuestions = freshData.questions
+      console.log('[Generate] Loaded:', allClassSkills.length, 'class skills,', allQuestions.length, 'questions')
 
-    // Override getQuestionsForSkill to use fresh qMap (not stale React state)
-    const getQs = (skillId) => (qMap[skillId] || []).sort((a,b) => a.tier - b.tier)
+      if (!allClassSkills.length) {
+        showToast('No skills added to this class yet — add some topics in the Dashboard first')
+        setLoading(false)
+        return
+      }
 
-    const due = getDueConcepts(allClassSkills, maxTopics)
-    const upcoming = getUpcomingSkills(allClassSkills, 7)
-    const retrieval = getRetrievalGaps(allClassSkills)
+      const qMap = {}
+      allQuestions.forEach(q => { if (!qMap[q.skill_id]) qMap[q.skill_id] = []; qMap[q.skill_id].push(q) })
+      console.log('[Generate] qMap skill IDs:', Object.keys(qMap).length)
 
-    // Upcoming prereqs
-    const upcomingPrereqs = []
-    const added = new Set(due.map(d => d.skill?.skill_name))
-    upcoming.forEach(u => {
-      const prereqs = u.skill?.prerequisites || []
-      prereqs.forEach(p => {
-        if (added.has(p)) return
-        const match = allClassSkills.find(c => c.skill?.skill_name === p)
-        if (match) { added.add(p); upcomingPrereqs.push({ ...match, _tag: `🔜 Prereq for ${u.skill?.skill_name}` }) }
+      const due = getDueConcepts(allClassSkills, maxTopics)
+      const upcoming = getUpcomingSkills(allClassSkills, 7)
+      const retrieval = getRetrievalGaps(allClassSkills)
+      console.log('[Generate] due:', due.length, 'upcoming:', upcoming.length, 'retrieval:', retrieval.length)
+
+      const upcomingPrereqs = []
+      const added = new Set(due.map(d => d.skill?.skill_name))
+      upcoming.forEach(u => {
+        const prereqs = u.skill?.prerequisites || []
+        prereqs.forEach(p => {
+          if (added.has(p)) return
+          const match = allClassSkills.find(c => c.skill?.skill_name === p)
+          if (match) { added.add(p); upcomingPrereqs.push({ ...match, _tag: `🔜 Prereq for ${u.skill?.skill_name}` }) }
+        })
       })
-    })
 
-    const totalScheduled = due.length + upcomingPrereqs.length + retrieval.length
-    const fndlCount = Math.max(2, Math.min(5, maxTopics - totalScheduled))
+      const totalScheduled = due.length + upcomingPrereqs.length + retrieval.length
+      const fndlCount = Math.max(2, Math.min(5, maxTopics - totalScheduled))
+      console.log('[Generate] Building:', fndlCount, 'warmups,', due.length, 'skill sets')
 
-    const built = []
+      const built = []
 
-    // Helper: get questions for a skill from qMap
-    function skillQs(sk) {
-      return (qMap[sk.id] || []).sort((a, b) => a.tier - b.tier)
-    }
+      // 1. Foundational warm-ups
+      for (let i = 0; i < fndlCount; i++) {
+        const f = FOUNDATIONAL[(dayOfYear + i) % FOUNDATIONAL.length]
+        built.push({
+          id: `fndl-${i}`,
+          skill: { skill_name: f.label, strand: f.strand, year_level: 'F', topic: 'Foundational' },
+          classSkill: null, tag: '⚡ Warm-up', isFoundational: true,
+          singleMode: false, isBank: true,
+          questions: [...f.questions],
+          btbEasy: f.btbEasy, btbHard: f.btbHard, btbChain: '',
+        })
+      }
 
-    // 1. Foundational warm-ups (full tiered bank only — no spotlight needed for mental maths)
-    for (let i = 0; i < fndlCount; i++) {
-      const f = FOUNDATIONAL[(dayOfYear + i) % FOUNDATIONAL.length]
-      built.push({
-        id: `fndl-${i}`,
-        skill: { skill_name: f.label, strand: f.strand, year_level: 'F', topic: 'Foundational' },
-        classSkill: null, tag: '⚡ Warm-up', isFoundational: true,
-        singleMode: false, isBank: true,
-        questions: [...f.questions],
-        btbEasy: f.btbEasy, btbHard: f.btbHard, btbChain: '',
+      // 2. Upcoming prereqs
+      upcomingPrereqs.forEach(c => {
+        const sk = c.skill || {}
+        const qs = (qMap[sk.id] || []).filter(q => q.tier <= 2).slice(0, 3)
+        qs.forEach((q, i) => built.push({
+          id: `${c.id}-pre${i}`, skill: sk, classSkill: c, tag: c._tag,
+          singleMode: true, isBank: false, isSpotlight: true,
+          questions: [q],
+          btbEasy: sk.btb_easy || '', btbHard: sk.btb_hard || '', btbChain: sk.btb_chain || '',
+        }))
       })
-    }
 
-    // 2. Upcoming prereqs — just a quick spotlight set (no full bank, keep it brief)
-    upcomingPrereqs.forEach(c => {
-      const sk = c.skill || {}
-      const qs = (qMap[sk.id] || []).filter(q => q.tier <= 2).slice(0, 3)
-      qs.forEach((q, i) => built.push({
-        id: `${c.id}-pre${i}`, skill: sk, classSkill: c, tag: c._tag,
-        singleMode: true, isBank: false, isSpotlight: true,
-        questions: [q],
-        btbEasy: sk.btb_easy || '', btbHard: sk.btb_hard || '', btbChain: sk.btb_chain || '',
-      }))
-    })
-
-    // 3. Long-term retrieval — just the full bank (students should remember this)
-    retrieval.forEach(c => {
-      const sk = c.skill || {}
-      built.push({
-        id: `${c.id}-ret`, skill: sk, classSkill: c, tag: '🧠 Retrieval',
-        singleMode: false, isBank: true,
-        questions: (qMap[sk.id] || []).sort((a,b) => a.tier - b.tier),
-        btbEasy: sk.btb_easy || '', btbHard: sk.btb_hard || '', btbChain: sk.btb_chain || '',
+      // 3. Retrieval
+      retrieval.forEach(c => {
+        const sk = c.skill || {}
+        built.push({
+          id: `${c.id}-ret`, skill: sk, classSkill: c, tag: '🧠 Retrieval',
+          singleMode: false, isBank: true,
+          questions: (qMap[sk.id] || []).sort((a,b) => a.tier - b.tier),
+          btbEasy: sk.btb_easy || '', btbHard: sk.btb_hard || '', btbChain: sk.btb_chain || '',
+        })
       })
-    })
 
-    // 4. Due topics — SLIDE SET per skill:
-    //    • 3 spotlight slides (1 from T1, 1 from T2, 1 from T3/T4) — interactive
-    //    • 1 full tiered bank slide — all questions, all tiers
-    due.forEach(c => {
-      const sk = c.skill || {}
-      const mastery = c.mastery || 1
-      const history = Array.isArray(c.rating_history) ? c.rating_history : []
-      const lowStreak = history.slice(-3).filter(r => r.rating <= 2).length >= 2
-      const tag = mastery <= 2 ? '⚠ Low mastery' : ''
-      const slideSet = buildSlideSet(c, tag, { isWC: lowStreak }, qMap)
-      built.push(...slideSet)
-    })
+      // 4. Due topics — slide sets
+      due.forEach((c, ci) => {
+        const sk = c.skill || {}
+        const mastery = c.mastery || 1
+        const history = Array.isArray(c.rating_history) ? c.rating_history : []
+        const lowStreak = history.slice(-3).filter(r => r.rating <= 2).length >= 2
+        const tag = mastery <= 2 ? '⚠ Low mastery' : ''
+        console.log(`[Generate] Building slide set ${ci+1}/${due.length}: ${sk.skill_name}`)
+        const slideSet = buildSlideSet(c, tag, { isWC: lowStreak }, qMap)
+        built.push(...slideSet)
+      })
 
-    setSlides(built)
-    setCurrentSlides(built)
-    const skillCount = due.length
-    const totalSlides = built.length
-    setSummary({
-      fndl: fndlCount, prereqs: upcomingPrereqs.length,
-      retrieval: retrieval.length, due: skillCount, total: totalSlides
-    })
-    setLoading(false)
-    showToast(`Generated ${totalSlides} slides for ${skillCount} skills`)
+      console.log('[Generate] Total slides built:', built.length)
+      setSlides(built)
+      setCurrentSlides(built)
+      setSummary({
+        fndl: fndlCount, prereqs: upcomingPrereqs.length,
+        retrieval: retrieval.length, due: due.length, total: built.length
+      })
+      setLoading(false)
+      showToast(`Generated ${built.length} slides for ${due.length} skills`)
+
     } catch(err) {
-      console.error('Generate error:', err)
-      showToast('Error generating slides — check console')
+      console.error('[Generate] ERROR:', err.message, err.stack)
+      showToast(`Error: ${err.message}`)
       setLoading(false)
     }
   }
