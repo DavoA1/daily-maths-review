@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useAuth } from '../lib/auth.jsx'
 import { useSettings } from '../lib/settings.jsx'
 import { supabase } from '../lib/supabase.js'
@@ -22,6 +22,19 @@ function _frac(n, d) {
   const w = Math.floor(Math.abs(sn)/sd), r = Math.abs(sn)%sd, sg = sn<0?'−':''
   if (r === 0) return `${sn}`
   return w === 0 ? `${sg}${Math.abs(sn)}⁄${sd}` : `${sg}${w} ${r}⁄${sd}`
+}
+
+// ── MATH NOTATION ────────────────────────────────────────────
+// Convert x^2 → x², a^3 → a³, etc. using Unicode superscripts
+const _SUP = {'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹','-':'⁻'}
+function _sup(n) { return String(n).split('').map(c=>_SUP[c]||c).join('') }
+function _mathNotation(s) {
+  if (!s) return s
+  // x^{n} or x^n patterns
+  return s
+    .replace(/\^{?(-?\d+)}?/g, (_, n) => _sup(n))
+    .replace(/sqrt\(([^)]+)\)/g, '√($1)')
+    .replace(/sqrt/g, '√')
 }
 
 const _GENS = {
@@ -232,7 +245,7 @@ function augmentWithGenerated(skill, bankedQuestions) {
       if (!gen) continue
       const q = gen()
       if (!q || q.tier !== tier) continue
-      result.push({ ...q, id: `gen_${tier}_${Date.now()}_${attempts}`, generated: true, skill_id: skill.id })
+      result.push({ ...q, q: _mathNotation(q.q), question_text: _mathNotation(q.question_text || q.q), id: `gen_${tier}_${Date.now()}_${attempts}`, generated: true, skill_id: skill.id })
       added++
     }
   }
@@ -279,7 +292,12 @@ export default function Generate() {
   const [timerSecs, setTimerSecs] = useState(settings.defaultTimer || 15)
   const [btbSecs, setBtbSecs] = useState(settings.btbTimer || 90)
   const [loading, setLoading] = useState(false)
-  const [editingSlide, setEditingSlide] = useState(null) // {slideIdx, qIdx} or null
+  const [editingSlide, setEditingSlide] = useState(null)
+  const [selectedWarmups, setSelectedWarmups] = useState(new Set([0,1,2,3,4])) // all 5 on by default
+  const [addTopicOpen, setAddTopicOpen] = useState(false)
+  const [allSkills, setAllSkills] = useState([])
+  const [skippedSlides, setSkippedSlides] = useState(new Set())
+  const qMap_ref = useRef({})
   const [editQ, setEditQ] = useState({ tier: 1, type: 'std', q: '', a: '', vc: '' })
   const [summary, setSummary] = useState(null)
   const [toast, setToast] = useState('')
@@ -432,63 +450,81 @@ export default function Generate() {
   async function doGenerate() {
     if (!activeClass) { showToast('No class selected'); return }
     setLoading(true)
+    setSkippedSlides(new Set())
     try {
-      console.log('[Generate] Starting... activeClass:', activeClass)
-
+      console.log('[Generate] Starting...')
       const freshData = await loadClassData(activeClass)
       const allClassSkills = freshData.classSkills
       const allQuestions = freshData.questions
-      console.log('[Generate] Loaded:', allClassSkills.length, 'class skills,', allQuestions.length, 'questions')
+      console.log('[Generate] Loaded:', allClassSkills.length, 'skills,', allQuestions.length, 'questions')
 
       if (!allClassSkills.length) {
-        showToast('No skills added to this class yet — add some topics in the Dashboard first')
+        showToast('No skills added to this class yet — add topics in Dashboard first')
         setLoading(false)
         return
       }
 
+      // Build question map keyed by skill_id
       const qMap = {}
-      allQuestions.forEach(q => { if (!qMap[q.skill_id]) qMap[q.skill_id] = []; qMap[q.skill_id].push(q) })
-      console.log('[Generate] qMap skill IDs:', Object.keys(qMap).length)
+      allQuestions.forEach(q => {
+        if (!qMap[q.skill_id]) qMap[q.skill_id] = []
+        qMap[q.skill_id].push(q)
+      })
+      qMap_ref.current = qMap  // store for add-topic modal
 
+      // ── SESSION SHUFFLE ──────────────────────────────────────
+      // Shuffle T1/T2 banked questions so different ones appear each session
+      const sessionSeed = Date.now()
+      function shuffledSkillQs(skillId) {
+        const qs = [...(qMap[skillId] || [])]
+        // Fisher-Yates with session seed for T1/T2, stable for T3/T4
+        for (let i = qs.length - 1; i > 0; i--) {
+          const j = Math.floor(((sessionSeed * (i + 1)) % 999983) / 999983 * (i + 1))
+          if (qs[i] && qs[j]) [qs[i], qs[j]] = [qs[j], qs[i]]
+        }
+        return qs.sort((a,b) => a.tier - b.tier) // keep tier order but shuffle within tiers
+      }
+
+      // ── INCLUSION TIERS ──────────────────────────────────────
       const due = getDueConcepts(allClassSkills, maxTopics)
-      const upcoming = getUpcomingSkills(allClassSkills, 7)
       const retrieval = getRetrievalGaps(allClassSkills)
-      console.log('[Generate] due:', due.length, 'upcoming:', upcoming.length, 'retrieval:', retrieval.length)
+      const upcoming = getUpcomingSkills(allClassSkills, 7)
+      console.log('[Generate] Inclusion tiers:', due.map(d => `${d.skill?.skill_name}(${d._inclusionTier})`).join(', '))
 
+      // Upcoming prereqs
       const upcomingPrereqs = []
-      const added = new Set(due.map(d => d.skill?.skill_name))
+      const addedSkills = new Set(due.map(d => d.skill?.skill_name))
       upcoming.forEach(u => {
         const prereqs = u.skill?.prerequisites || []
         prereqs.forEach(p => {
-          if (added.has(p)) return
+          if (addedSkills.has(p)) return
           const match = allClassSkills.find(c => c.skill?.skill_name === p)
-          if (match) { added.add(p); upcomingPrereqs.push({ ...match, _tag: `🔜 Prereq for ${u.skill?.skill_name}` }) }
+          if (match) { addedSkills.add(p); upcomingPrereqs.push({ ...match, _tag: `🔜 Prereq for ${u.skill?.skill_name}` }) }
         })
       })
 
-      const totalScheduled = due.length + upcomingPrereqs.length + retrieval.length
-      const fndlCount = Math.max(2, Math.min(5, maxTopics - totalScheduled))
-      console.log('[Generate] Building:', fndlCount, 'warmups,', due.length, 'skill sets')
-
       const built = []
 
-      // 1. Foundational warm-ups
-      for (let i = 0; i < fndlCount; i++) {
-        const f = FOUNDATIONAL[(dayOfYear + i) % FOUNDATIONAL.length]
+      // ── WARM-UPS ────────────────────────────────────────────
+      // Only include selected warm-up sets
+      const warmupIndices = [...selectedWarmups].sort()
+      warmupIndices.forEach(wIdx => {
+        const f = FOUNDATIONAL[wIdx]
+        if (!f) return
         built.push({
-          id: `fndl-${i}`,
+          id: `fndl-${wIdx}`,
           skill: { skill_name: f.label, strand: f.strand, year_level: 'F', topic: 'Foundational' },
           classSkill: null, tag: '⚡ Warm-up', isFoundational: true,
           singleMode: false, isBank: true,
           questions: [...f.questions],
           btbEasy: f.btbEasy, btbHard: f.btbHard, btbChain: '',
         })
-      }
+      })
 
-      // 2. Upcoming prereqs
+      // ── PREREQS ─────────────────────────────────────────────
       upcomingPrereqs.forEach(c => {
         const sk = c.skill || {}
-        const qs = (qMap[sk.id] || []).filter(q => q.tier <= 2).slice(0, 3)
+        const qs = shuffledSkillQs(sk.id).filter(q => q.tier <= 2).slice(0, 3)
         qs.forEach((q, i) => built.push({
           id: `${c.id}-pre${i}`, skill: sk, classSkill: c, tag: c._tag,
           singleMode: true, isBank: false, isSpotlight: true,
@@ -497,38 +533,76 @@ export default function Generate() {
         }))
       })
 
-      // 3. Retrieval
+      // ── RETRIEVAL ───────────────────────────────────────────
       retrieval.forEach(c => {
         const sk = c.skill || {}
+        const qs = shuffledSkillQs(sk.id)
+        let allQs = qs
+        try { allQs = augmentWithGenerated(sk, qs) } catch(e) {}
         built.push({
           id: `${c.id}-ret`, skill: sk, classSkill: c, tag: '🧠 Retrieval',
           singleMode: false, isBank: true,
-          questions: (qMap[sk.id] || []).sort((a,b) => a.tier - b.tier),
+          questions: allQs,
           btbEasy: sk.btb_easy || '', btbHard: sk.btb_hard || '', btbChain: sk.btb_chain || '',
         })
       })
 
-      // 4. Due topics — slide sets
+      // ── DUE TOPICS — SLIDE SETS based on inclusion tier ─────
       due.forEach((c, ci) => {
         const sk = c.skill || {}
+        const inclusionTier = c._inclusionTier || 'review'
         const mastery = c.mastery || 1
-        const history = Array.isArray(c.rating_history) ? c.rating_history : []
-        const lowStreak = history.slice(-3).filter(r => r.rating <= 2).length >= 2
+        const lowStreak = (c.rating_history||[]).slice(-3).filter(r=>r.rating<=2).length >= 2
         const tag = mastery <= 2 ? '⚠ Low mastery' : ''
-        console.log(`[Generate] Building slide set ${ci+1}/${due.length}: ${sk.skill_name}`)
-        const slideSet = buildSlideSet(c, tag, { isWC: lowStreak }, qMap)
-        built.push(...slideSet)
+        const qs = shuffledSkillQs(sk.id)
+        let allQs = qs
+        try { allQs = augmentWithGenerated(sk, qs) } catch(e) { console.warn('[Generate] Generator failed:', sk.skill_name, e.message) }
+        allQs.sort((a,b) => a.tier - b.tier)
+
+        const byTier = {1:[],2:[],3:[],4:[]}
+        allQs.forEach(q => { if(byTier[q.tier]) byTier[q.tier].push(q) })
+
+        const base = { skill: sk, classSkill: c, tag, btbEasy: sk.btb_easy||'', btbHard: sk.btb_hard||'', btbChain: sk.btb_chain||'', isWC: lowStreak }
+
+        console.log(`[Generate] ${ci+1}/${due.length}: ${sk.skill_name} [${inclusionTier}]`)
+
+        // intensive: WC spotlight (T1) + MC spotlight + full bank
+        if (inclusionTier === 'intensive') {
+          // WC spotlight — T1 question for whole class
+          const wcQ = byTier[1][0] || byTier[2][0]
+          if (wcQ) built.push({ ...base, id: `${c.id}-wc`, singleMode: true, isBank: false, isSpotlight: true, isWC: true, spotlightIndex: 0, spotlightTotal: 2, questions: [wcQ] })
+          // MC spotlight — find a MC question or use T2
+          const mcQ = allQs.find(q => q.question_type === 'mc' || q.type === 'mc') || byTier[2][0] || byTier[1][1]
+          if (mcQ) built.push({ ...base, id: `${c.id}-mc`, singleMode: true, isBank: false, isSpotlight: true, isMC: true, spotlightIndex: 1, spotlightTotal: 2, questions: [mcQ] })
+          // Full bank
+          built.push({ ...base, id: `${c.id}-bank`, singleMode: false, isBank: true, questions: allQs })
+        }
+        // moderate: T2 spotlight + MC + full bank
+        else if (inclusionTier === 'moderate') {
+          const t2Q = byTier[2][0] || byTier[1][0]
+          if (t2Q) built.push({ ...base, id: `${c.id}-t2`, singleMode: true, isBank: false, isSpotlight: true, spotlightIndex: 0, spotlightTotal: 2, questions: [t2Q] })
+          const mcQ = allQs.find(q => q.question_type === 'mc' || q.type === 'mc') || byTier[2][1]
+          if (mcQ) built.push({ ...base, id: `${c.id}-mc`, singleMode: true, isBank: false, isSpotlight: true, isMC: true, spotlightIndex: 1, spotlightTotal: 2, questions: [mcQ] })
+          built.push({ ...base, id: `${c.id}-bank`, singleMode: false, isBank: true, questions: allQs })
+        }
+        // light: MC + full bank
+        else if (inclusionTier === 'light') {
+          const mcQ = allQs.find(q => q.question_type === 'mc' || q.type === 'mc') || byTier[2][0]
+          if (mcQ) built.push({ ...base, id: `${c.id}-mc`, singleMode: true, isBank: false, isSpotlight: true, isMC: true, spotlightIndex: 0, spotlightTotal: 1, questions: [mcQ] })
+          built.push({ ...base, id: `${c.id}-bank`, singleMode: false, isBank: true, questions: allQs })
+        }
+        // review: full bank only
+        else {
+          built.push({ ...base, id: `${c.id}-bank`, singleMode: false, isBank: true, questions: allQs })
+        }
       })
 
-      console.log('[Generate] Total slides built:', built.length)
+      console.log('[Generate] Total slides:', built.length)
       setSlides(built)
       setCurrentSlides(built)
-      setSummary({
-        fndl: fndlCount, prereqs: upcomingPrereqs.length,
-        retrieval: retrieval.length, due: due.length, total: built.length
-      })
+      setSummary({ fndl: warmupIndices.length, prereqs: upcomingPrereqs.length, retrieval: retrieval.length, due: due.length, total: built.length })
       setLoading(false)
-      showToast(`Generated ${built.length} slides for ${due.length} skills`)
+      showToast(`✓ Generated ${built.length} slides for ${due.length} skills`)
 
     } catch(err) {
       console.error('[Generate] ERROR:', err.message, err.stack)
@@ -536,9 +610,18 @@ export default function Generate() {
       setLoading(false)
     }
   }
-
   function removeSlide(idx) {
     setSlides(s => { const n = [...s]; n.splice(idx, 1); setCurrentSlides(n); return n })
+  }
+  function moveSlide(idx, dir) {
+    setSlides(s => {
+      const n = [...s]
+      const swapIdx = idx + dir
+      if (swapIdx < 0 || swapIdx >= n.length) return s
+      ;[n[idx], n[swapIdx]] = [n[swapIdx], n[idx]]
+      setCurrentSlides(n)
+      return n
+    })
   }
 
   function removeQuestion(slideIdx, qIdx) {
@@ -614,11 +697,44 @@ export default function Generate() {
             {loading ? 'Building...' : 'Generate Slides'}
           </button>
           {slides.length > 0 && (
-            <button className="btn" onClick={() => navigate('/present', { state: { slides, timerSecs, btbSecs } })}
-              style={{ background: 'rgba(74,200,240,.14)', borderColor: 'var(--blu)', color: 'var(--blu)', fontFamily: 'var(--font-display)', fontWeight: 700 }}>
-              ▶ Present ({slides.length + 1} slides)
-            </button>
+            <>
+              <button className="btn" onClick={() => navigate('/present', { state: { slides, timerSecs, btbSecs } })}
+                style={{ background: 'rgba(74,200,240,.14)', borderColor: 'var(--blu)', color: 'var(--blu)', fontFamily: 'var(--font-display)', fontWeight: 700 }}>
+                ▶ Present ({slides.length + 1} slides)
+              </button>
+              <button className="btn btn-secondary" onClick={() => setAddTopicOpen(true)} style={{ fontSize: 12 }}>
+                + Add Topic
+              </button>
+              <button className="btn btn-secondary" onClick={() => {
+                const expSlide = { id: `exp-${Date.now()}`, isExplanation: true, singleMode: true, isBank: false,
+                  skill: { skill_name: 'Explanation', strand: '', year_level: '', topic: '' },
+                  expTitle: '', expText: '', expImage: '', expVideo: '',
+                  questions: [], btbEasy: '', btbHard: '', btbChain: '' }
+                setSlides(s => { const n = [...s, expSlide]; setCurrentSlides(n); return n })
+              }} style={{ fontSize: 12 }}>
+                + Explanation Slide
+              </button>
+            </>
           )}
+        </div>
+      </div>
+
+      {/* Warm-up Set Selector */}
+      <div className="card card-pad" style={{ marginBottom: 12 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--td)', marginBottom: 8 }}>⚡ Warm-up Sets (select to include)</div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {FOUNDATIONAL.map((f, i) => (
+            <label key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 'var(--rs)', border: `1px solid ${selectedWarmups.has(i) ? 'var(--blu)' : 'var(--b2)'}`, background: selectedWarmups.has(i) ? 'rgba(74,200,240,.1)' : 'transparent', cursor: 'pointer', fontSize: 12, color: selectedWarmups.has(i) ? 'var(--blu)' : 'var(--td)', transition: 'all .15s', userSelect: 'none' }}>
+              <input type="checkbox" checked={selectedWarmups.has(i)} onChange={() => {
+                setSelectedWarmups(prev => {
+                  const n = new Set(prev)
+                  n.has(i) ? n.delete(i) : n.add(i)
+                  return n
+                })
+              }} style={{ display: 'none' }} />
+              {selectedWarmups.has(i) ? '✓' : '○'} {f.label}
+            </label>
+          ))}
         </div>
       </div>
 
@@ -690,7 +806,30 @@ export default function Generate() {
                   const borderCol = isBank ? 'rgba(74,200,240,.35)' : isSpotlight ? 'rgba(160,74,240,.25)' : 'var(--b1)'
                   const bgCol = isBank ? 'rgba(74,200,240,.03)' : isSpotlight ? 'rgba(160,74,240,.02)' : 'var(--s1)'
 
+                  // ── EXPLANATION SLIDE ──
+                if (slide.isExplanation) {
                   return (
+                    <div key={slide.id} className="card" style={{ border: '1px solid rgba(160,74,240,.3)', background: 'rgba(160,74,240,.04)', marginBottom: 5 }}>
+                      <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--b1)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4, background: 'rgba(160,74,240,.15)', color: 'var(--pur)' }}>📖 Explanation Slide</span>
+                        <span style={{ flex: 1, fontSize: 12, color: 'var(--td)' }}>{slide.expTitle || 'Untitled explanation'}</span>
+                        <button className="btn btn-ghost btn-sm" style={{ color: 'var(--td)', fontSize: 12 }} onClick={() => moveSlide(si, -1)}>↑</button>
+                        <button className="btn btn-ghost btn-sm" style={{ color: 'var(--td)', fontSize: 12 }} onClick={() => moveSlide(si, 1)}>↓</button>
+                        <button className="btn btn-ghost btn-sm" style={{ color: 'var(--red)', fontSize: 14 }} onClick={() => removeSlide(si)}>✕</button>
+                      </div>
+                      <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <input className="input" placeholder="Title / heading..." value={slide.expTitle||''} onChange={e => setSlides(s => { const n=[...s]; n[si]={...n[si],expTitle:e.target.value}; setCurrentSlides(n); return n })} />
+                        <textarea className="input" rows={3} placeholder="Explanation text — key concept, worked example, hint..." value={slide.expText||''} onChange={e => setSlides(s => { const n=[...s]; n[si]={...n[si],expText:e.target.value}; setCurrentSlides(n); return n })} style={{ resize:'vertical', fontFamily:'var(--font-mono)', fontSize:12 }} />
+                        <div style={{ display:'flex', gap:8 }}>
+                          <input className="input" style={{ flex:1, fontSize:11 }} placeholder="Image URL (optional)..." value={slide.expImage||''} onChange={e => setSlides(s => { const n=[...s]; n[si]={...n[si],expImage:e.target.value}; setCurrentSlides(n); return n })} />
+                          <input className="input" style={{ flex:1, fontSize:11 }} placeholder="YouTube/video URL (optional)..." value={slide.expVideo||''} onChange={e => setSlides(s => { const n=[...s]; n[si]={...n[si],expVideo:e.target.value}; setCurrentSlides(n); return n })} />
+                        </div>
+                      </div>
+                    </div>
+                  )
+                }
+
+                return (
                     <div key={slide.id} className="card" style={{ border: `1px solid ${borderCol}`, background: bgCol }}>
                       {/* Slide header */}
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '10px 14px', borderBottom: '1px solid var(--b1)' }}>
@@ -714,6 +853,8 @@ export default function Generate() {
                               {slides[si]?.singleMode ? '1️⃣ Single ✓' : '📋 Tiered'}
                             </button>
                           )}
+                          <button className="btn btn-ghost btn-sm" style={{ color: 'var(--td)', fontSize: 12, padding: '2px 5px' }} onClick={() => moveSlide(si, -1)} title="Move up">↑</button>
+                          <button className="btn btn-ghost btn-sm" style={{ color: 'var(--td)', fontSize: 12, padding: '2px 5px' }} onClick={() => moveSlide(si, 1)} title="Move down">↓</button>
                           <button className="btn btn-ghost btn-sm" style={{ color: 'var(--red)', fontSize: 14 }} onClick={() => removeSlide(si)}>✕</button>
                         </div>
                       </div>
@@ -806,6 +947,95 @@ export default function Generate() {
       )}
 
       {toast && <div className="toast">{toast}</div>}
+
+      {/* ── ADD TOPIC MODAL ── */}
+      {addTopicOpen && <AddTopicToSlides
+        allSkills={allSkills}
+        onAdd={(sk) => {
+          // Create a full review slide for the added skill
+          const fakeCS = { id: `manual-${sk.id}`, skill_id: sk.id, skill: sk, mastery: 1, last_reviewed: null, rating_history: [] }
+          const qs = (qMap_ref.current[sk.id] || []).sort((a,b) => a.tier-b.tier)
+          let allQs = qs
+          try { allQs = augmentWithGenerated(sk, qs) } catch(e) {}
+          const newSlide = { id: `manual-${sk.id}-bank`, skill: sk, classSkill: fakeCS,
+            tag: '➕ Added', singleMode: false, isBank: true, questions: allQs,
+            btbEasy: sk.btb_easy||'', btbHard: sk.btb_hard||'', btbChain: sk.btb_chain||'' }
+          setSlides(s => { const n = [...s, newSlide]; setCurrentSlides(n); return n })
+          setAddTopicOpen(false)
+          showToast(`Added: ${sk.skill_name}`)
+        }}
+        onClose={() => setAddTopicOpen(false)}
+      />}
+
+      {/* ── EXPLANATION SLIDE EDITOR ── */}
+      {slides.some(s => s.isExplanation) && slides.map((slide, si) => slide.isExplanation && (
+        <div key={slide.id} style={{ display:'none' }} /> // Explanation slides are edited inline in the slide list
+      ))}
+    </div>
+  )
+}
+
+// ── ADD TOPIC TO SLIDES MODAL ──────────────────────────────
+function AddTopicToSlides({ allSkills, onAdd, onClose }) {
+  const [yr, setYr] = useState('')
+  const [strand, setStrand] = useState('')
+  const [topic, setTopic] = useState('')
+  const [skillId, setSkillId] = useState('')
+
+  const years = [...new Set(allSkills.map(s => s.year_level))].sort((a,b)=>{
+    if(a==='F') return -1; if(b==='F') return 1; return a-b
+  })
+  const strands = [...new Set(allSkills.filter(s=>!yr||s.year_level==yr).map(s=>s.strand))].sort()
+  const topics = [...new Set(allSkills.filter(s=>(!yr||s.year_level==yr)&&(!strand||s.strand===strand)).map(s=>s.topic))].sort()
+  const filteredSkills = allSkills.filter(s=>(!yr||s.year_level==yr)&&(!strand||s.strand===strand)&&(!topic||s.topic===topic))
+  const selectedSkill = allSkills.find(s=>s.id===skillId)
+
+  return (
+    <div style={{ position:'fixed',inset:0,background:'rgba(0,0,0,.5)',zIndex:3000,display:'flex',alignItems:'center',justifyContent:'center' }}>
+      <div className="card card-pad" style={{ width:500,maxHeight:'80vh',overflow:'auto' }}>
+        <div style={{ fontFamily:'var(--font-display)',fontWeight:700,fontSize:16,marginBottom:16 }}>Add Topic to Review</div>
+        <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:12 }}>
+          <div className="field" style={{margin:0}}>
+            <label>Year Level</label>
+            <select className="input select" value={yr} onChange={e=>{setYr(e.target.value);setStrand('');setTopic('');setSkillId('')}}>
+              <option value="">All years</option>
+              {years.map(y=><option key={y} value={y}>{y==='F'?'Foundational':`Year ${y}`}</option>)}
+            </select>
+          </div>
+          <div className="field" style={{margin:0}}>
+            <label>Strand</label>
+            <select className="input select" value={strand} onChange={e=>{setStrand(e.target.value);setTopic('');setSkillId('')}}>
+              <option value="">All strands</option>
+              {strands.map(s=><option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+          <div className="field" style={{margin:0}}>
+            <label>Topic</label>
+            <select className="input select" value={topic} onChange={e=>{setTopic(e.target.value);setSkillId('')}}>
+              <option value="">All topics</option>
+              {topics.map(t=><option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+          <div className="field" style={{margin:0}}>
+            <label>Skill</label>
+            <select className="input select" value={skillId} onChange={e=>setSkillId(e.target.value)}>
+              <option value="">Select skill...</option>
+              {filteredSkills.map(s=><option key={s.id} value={s.id}>{s.skill_name}</option>)}
+            </select>
+          </div>
+        </div>
+        {selectedSkill && (
+          <div style={{ padding:'10px 12px',background:'var(--s2)',borderRadius:'var(--rs)',fontSize:12,marginBottom:12,color:'var(--td)' }}>
+            <strong>{selectedSkill.skill_name}</strong><br/>
+            {selectedSkill.strand} · Year {selectedSkill.year_level} · {selectedSkill.topic}
+            {selectedSkill.vc_code && <span style={{marginLeft:8,opacity:.6}}>{selectedSkill.vc_code}</span>}
+          </div>
+        )}
+        <div style={{ display:'flex',gap:8 }}>
+          <button className="btn btn-primary" disabled={!skillId} onClick={() => onAdd(selectedSkill)}>Add to Review</button>
+          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+        </div>
+      </div>
     </div>
   )
 }

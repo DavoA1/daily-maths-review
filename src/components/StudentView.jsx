@@ -4,14 +4,21 @@ const channel = new BroadcastChannel('dmr_student_view')
 
 // Calculate optimal columns to avoid blank cells in the grid
 // Tries to find cols where items divide evenly, allows max 1 blank in last row
-function bestCols(n, maxCols) {
-  if (n <= 0) return 1
-  if (n <= maxCols) return n  // fewer items than max — use exact count, no blanks
-  for (let c = maxCols; c >= 2; c--) {
-    if (n % c === 0) return c           // perfect fit
-    if (n % c >= c - 1) return c        // at most 1 blank in last row
+
+
+// ── GRID HELPERS ────────────────────────────────────────────
+function snapCount(n, maxN) {
+  const clean = [1,2,3,4,6].filter(c => c <= maxN)
+  for (let i = clean.length - 1; i >= 0; i--) {
+    if (n >= clean[i]) return clean[i]
   }
-  return maxCols
+  return Math.min(n, 1)
+}
+function gridCols(n) {
+  if (n <= 3) return n
+  if (n === 4) return 2
+  if (n === 6) return 3
+  return n
 }
 
 const TIER_COLS = ['','#16a34a','#2563eb','#d97706','#dc2626']
@@ -75,6 +82,7 @@ export default function StudentView() {
       {/* Content */}
       <div style={{ flex:1,overflow:'hidden',padding:'10px 18px 8px',display:'flex',flexDirection:'column',alignItems:'center',background:'#f8fafc' }}>
         {data.isBomb ? <SVBomb data={data} bombLeft={bombLeft} />
+         : data.isExplanation ? <SVExplanation data={data} />
          : (data.slideMode==='single' || data.isSpotlight) ? <SVSingleQ data={data} />
          : <SVTiered data={data} />}
       </div>
@@ -83,55 +91,58 @@ export default function StudentView() {
 }
 
 // ── TIERED STUDENT VIEW ──
-// T1: 6 questions · T2: 6 questions · T3: 2 questions · T4: 1 challenge
 function SVTiered({ data }) {
   const byTierRaw = data.byTier || {1:[],2:[],3:[],4:[]}
-  const TIER_LIMITS = { 1: 6, 2: 6, 3: 2, 4: 1 }
 
   const tieredRows = [1,2,3,4].map(t => {
     const qs = [...(byTierRaw[t] || [])]
-    if (!qs.length) return null
-    const selected = qs
       .sort((a,b) => (a.question_text||a.q||'').length - (b.question_text||b.q||'').length)
-      .slice(0, TIER_LIMITS[t])
-    return { tier: t, qs: selected }
+    if (!qs.length) return null
+    const maxN = t <= 2 ? 6 : t === 3 ? 2 : 1
+    const count = snapCount(qs.length, maxN)
+    return { tier: t, qs: qs.slice(0, count) }
   }).filter(Boolean)
 
   if (!tieredRows.length) return (
-    <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', color:'#94a3b8', fontSize:18 }}>
+    <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center',
+      color:'#94a3b8', fontSize:16, fontStyle:'italic' }}>
       No questions yet.
     </div>
   )
 
-  const t1t2Qs = tieredRows.filter(r=>r.tier<=2).flatMap(r=>r.qs)
-  const t3t4Qs = tieredRows.filter(r=>r.tier>=3).flatMap(r=>r.qs)
-  const maxShortLen = t1t2Qs.length ? Math.max(...t1t2Qs.map(q=>(q.question_text||q.q||'').length)) : 20
-  const maxLongLen  = t3t4Qs.length ? Math.max(...t3t4Qs.map(q=>(q.question_text||q.q||'').length)) : 40
-
-  const fontSm = maxShortLen > 60 ? 11 : maxShortLen > 40 ? 12 : maxShortLen > 25 ? 14 : 16
-  const fontLg = maxLongLen > 120 ? 13 : maxLongLen > 80 ? 14 : maxLongLen > 50 ? 16 : 18
+  const t12Qs = tieredRows.filter(r=>r.tier<=2).flatMap(r=>r.qs)
+  const t34Qs = tieredRows.filter(r=>r.tier>=3).flatMap(r=>r.qs)
+  const maxShort = t12Qs.length ? Math.max(...t12Qs.map(q=>(q.question_text||q.q||'').length)) : 20
+  const maxLong  = t34Qs.length ? Math.max(...t34Qs.map(q=>(q.question_text||q.q||'').length)) : 40
+  const fontSm = maxShort > 60 ? 12 : maxShort > 40 ? 13 : maxShort > 25 ? 15 : 17
+  const fontLg = maxLong > 120 ? 13 : maxLong > 80 ? 14 : maxLong > 50 ? 16 : 18
+  const ansSm = Math.max(10, fontSm - 2)
+  const ansLg = Math.max(11, fontLg - 2)
 
   return (
-    <div style={{ width:'100%', maxWidth:1400, flex:1, minHeight:0, overflow:'hidden', display:'flex', flexDirection:'column' }}>
+    <div style={{ width:'100%', maxWidth:1400, flex:1, minHeight:0, overflow:'hidden',
+      display:'flex', flexDirection:'column' }}>
 
       {/* Skill header */}
       <div style={{ textAlign:'center', marginBottom:6, flexShrink:0 }}>
-        <div style={{ color:'#1e1b4b', fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'clamp(20px,2.8vw,36px)' }}>{data.skill}</div>
-        <div style={{ color:'#64748b', fontSize:13, marginTop:2 }}>
+        <div style={{ color:'#1e1b4b', fontFamily:"'Syne',sans-serif", fontWeight:800,
+          fontSize:'clamp(18px,2.5vw,34px)' }}>{data.skill}</div>
+        <div style={{ color:'#64748b', fontSize:12, marginTop:2 }}>
           {data.topic} · {data.strand} · {data.year==='F'?'Foundational':`Year ${data.year}`}
         </div>
       </div>
 
-      <div style={{ display:'flex', flexDirection:'column', gap:6, flex:1, minHeight:0, overflow:'hidden' }}>
+      <div style={{ display:'flex', flexDirection:'column', gap:6, flex:1, minHeight:0, overflow:'hidden', alignContent:'stretch' }}>
         {tieredRows.map(({ tier: t, qs }) => {
-          const isHighTier = t >= 3
-          const font = isHighTier ? fontLg : fontSm
-          const ansFont = Math.max(10, font - 2)
-          const cols = t === 4 ? 1 : t === 3 ? Math.min(qs.length, 2) : bestCols(qs.length, 3)
-          const flexWeight = t <= 2 ? 1.2 : t === 3 ? 2 : 2.5
+          const isHigh = t >= 3
+          const font = isHigh ? fontLg : fontSm
+          const ansFont = isHigh ? ansLg : ansSm
+          const cols = gridCols(qs.length)
+          const rows = qs.length / cols
+          const flexW = t === 1 ? 1 : t === 2 ? 1 : t === 3 ? 2 : 2.6
 
           return (
-            <div key={t} style={{ display:'flex', gap:6, flex:flexWeight, minHeight:0, overflow:'hidden' }}>
+            <div key={t} style={{ display:'flex', gap:6, flex:flexW, minHeight:0, overflow:'hidden' }}>
               {/* Tier label */}
               <div style={{
                 background:TIER_BG[t], border:`1.5px solid ${TIER_BORDER[t]}`,
@@ -139,12 +150,19 @@ function SVTiered({ data }) {
                 fontSize: t<=2 ? 9 : 11, fontWeight:800, letterSpacing:'.06em',
                 writingMode:'vertical-rl', transform:'rotate(180deg)',
                 display:'flex', alignItems:'center', justifyContent:'center',
-                flexShrink:0, minWidth: t<=2 ? 28 : 32, textTransform:'uppercase'
+                flexShrink:0, minWidth: t<=2 ? 26 : 32, textTransform:'uppercase',
               }}>
                 {t === 4 ? '🏆' : `T${t}`}
               </div>
 
-              <div style={{ display:'grid', gridTemplateColumns:`repeat(${cols},1fr)`, gap:6, flex:1, minHeight:0, overflow:'hidden', alignContent:'start' }}>
+              {/* Grid — cells stretch to fill all space */}
+              <div style={{
+                display:'grid',
+                gridTemplateColumns:`repeat(${cols},1fr)`,
+                gridTemplateRows:`repeat(${rows},1fr)`,
+                gap:6, flex:1, minHeight:0, overflow:'hidden',
+                alignItems:'stretch', alignContent:'stretch',
+              }}>
                 {qs.map((q, qi) => {
                   const qt = q.question_text || q.q || ''
                   const at = q.answer_text || q.a || ''
@@ -153,18 +171,37 @@ function SVTiered({ data }) {
                     <div key={qi} style={{
                       background: t===4 ? 'linear-gradient(135deg,#fff,#fffbeb)' : 'white',
                       border:`${t===4?2:1.5}px solid ${TIER_BORDER[t]}`,
-                      borderRadius:10, padding:'9px 14px',
-                      display:'flex', flexDirection:'column', overflow:'hidden',
+                      borderRadius:10, padding:'10px 14px',
+                      display:'flex', flexDirection:'column',
+                      alignItems:'center', justifyContent:'center',
+                      overflow:'hidden', height:'100%', boxSizing:'border-box',
+                      textAlign:'center',
                     }}>
-                      <div style={{ color:TIER_COLS[t], fontSize:10, fontWeight:800, marginBottom:4 }}>
+                      <div style={{ color:TIER_COLS[t], fontSize:10, fontWeight:800,
+                        marginBottom:3, alignSelf:'flex-start' }}>
                         {t===4 ? '🏆 CHALLENGE' : `${t}.${qi+1}`}
                       </div>
-                      {img && <img src={img} alt="" style={{ maxHeight: t>=3?100:60, objectFit:'contain', marginBottom:6, borderRadius:4 }} />}
-                      <div style={{ color:'#1e293b', fontFamily:"'JetBrains Mono',monospace", fontSize:`${font}px`, lineHeight:1.5, flex:1, overflow:'hidden', whiteSpace:'pre-wrap', wordBreak:'break-word', fontWeight: t===4?600:400 }}>
+                      {img && <img src={img} alt="" style={{
+                        maxHeight: t>=3?90:60, maxWidth:'90%',
+                        objectFit:'contain', marginBottom:5, borderRadius:4
+                      }} />}
+                      <div style={{
+                        color:'#1e293b', fontFamily:"'JetBrains Mono',monospace",
+                        fontSize:`${font}px`, lineHeight:1.5,
+                        whiteSpace:'pre-wrap', wordBreak:'break-word',
+                        fontWeight: t===4?600:400, textAlign:'center',
+                        flex:1, display:'flex', alignItems:'center', justifyContent:'center',
+                        width:'100%',
+                      }}>
                         {qt}
                       </div>
                       {data.showAns && (
-                        <div style={{ color:'#166534', fontFamily:"'JetBrains Mono',monospace", fontSize:`${ansFont}px`, borderTop:`1px solid ${TIER_BORDER[t]}`, paddingTop:5, marginTop:5, fontWeight:600 }}>
+                        <div style={{
+                          color:'#166534', fontFamily:"'JetBrains Mono',monospace",
+                          fontSize:`${ansFont}px`, borderTop:`1px solid ${TIER_BORDER[t]}`,
+                          paddingTop:4, marginTop:4, fontWeight:600,
+                          width:'100%', textAlign:'center',
+                        }}>
                           → {at}
                         </div>
                       )}
@@ -239,6 +276,29 @@ function SVSingleQ({ data }) {
           {Array.from({length:data.qTotal},(_,i) => (
             <div key={i} style={{ width:10,height:10,borderRadius:'50%',background:i===data.qNum-1?'#7c3aed':i<data.qNum-1?'#c4b5fd':'#e2e8f0',transform:i===data.qNum-1?'scale(1.3)':'scale(1)',transition:'all .2s' }} />
           ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── EXPLANATION STUDENT VIEW ──
+function SVExplanation({ data }) {
+  const yt = (data.expVideo||'').replace('watch?v=','embed/').replace('youtu.be/','youtube.com/embed/')
+  return (
+    <div style={{ width:'100%', maxWidth:900, flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:20 }}>
+      <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'clamp(22px,3.5vw,42px)', color:'#1e1b4b', textAlign:'center' }}>
+        {data.expTitle || 'Explanation'}
+      </div>
+      {data.expImage && (
+        <img src={data.expImage} alt="" style={{ maxHeight:280, maxWidth:'90%', objectFit:'contain', borderRadius:12, boxShadow:'0 4px 16px rgba(0,0,0,.12)' }} />
+      )}
+      {yt && (
+        <iframe src={yt} style={{ width:'100%', maxWidth:640, height:360, borderRadius:12, border:'none' }} allowFullScreen title="Video" />
+      )}
+      {data.expText && (
+        <div style={{ background:'white', borderRadius:14, padding:'22px 32px', maxWidth:700, width:'100%', color:'#1e293b', fontFamily:"'Figtree',sans-serif", fontSize:'clamp(16px,2vw,24px)', lineHeight:1.7, textAlign:'center', boxShadow:'0 4px 12px rgba(0,0,0,.08)', border:'1px solid #e2e8f0' }}>
+          {data.expText}
         </div>
       )}
     </div>

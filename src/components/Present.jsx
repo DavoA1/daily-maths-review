@@ -11,16 +11,25 @@ const TIER_BG   = ['','#f0fdf4','#eff6ff','#fffbeb','#fef2f2']
 const TIER_BORDER=['','#86efac','#93c5fd','#fcd34d','#fca5a5']
 
 
-// Calculate optimal columns to avoid blank cells in the grid
-// Tries to find cols where items divide evenly, allows max 1 blank in last row
-function bestCols(n, maxCols) {
-  if (n <= 0) return 1
-  if (n <= maxCols) return n  // fewer items than max — use exact count, no blanks
-  for (let c = maxCols; c >= 2; c--) {
-    if (n % c === 0) return c           // perfect fit
-    if (n % c >= c - 1) return c        // at most 1 blank in last row
+
+
+// ── GRID HELPERS ────────────────────────────────────────────
+// Snap question count to clean grid numbers (no empty cells)
+// T1/T2: 1,2,3,4,6 — never 5 (would leave a blank)
+// T3: 1 or 2
+// T4: always 1
+function snapCount(n, maxN) {
+  const clean = [1,2,3,4,6].filter(c => c <= maxN)
+  for (let i = clean.length - 1; i >= 0; i--) {
+    if (n >= clean[i]) return clean[i]
   }
-  return maxCols
+  return Math.min(n, 1)
+}
+function gridCols(n) {
+  if (n <= 3) return n   // 1→1col, 2→2col, 3→3col
+  if (n === 4) return 2  // 2×2
+  if (n === 6) return 3  // 3×2
+  return n
 }
 
 const MODE_CONFIG = {
@@ -60,8 +69,11 @@ export default function Present() {
   const [timeLeft, setTimeLeft] = useState(timerSecs)
   const [bombLeft, setBombLeft] = useState(btbSecs)
   const [ratings, setRatings] = useState({})
+  const [skipped, setSkipped] = useState(new Set())
+  const [reviewElapsed, setReviewElapsed] = useState(0)  // seconds since first slide
   const timerRef = useRef(null)
   const bombRef = useRef(null)
+  const reviewTimerRef = useRef(null)
 
   const isBomb = slideIdx >= allSlides.length
   const totalSlides = allSlides.length + 1
@@ -96,7 +108,13 @@ export default function Present() {
   useEffect(() => {
     if (!allSlides.length) { navigate('/generate'); return }
     startTimer(timerSecs)
-    return () => { clearInterval(timerRef.current); clearInterval(bombRef.current) }
+    // 10-minute review timer
+    reviewTimerRef.current = setInterval(() => setReviewElapsed(e => e + 1), 1000)
+    return () => {
+      clearInterval(timerRef.current)
+      clearInterval(bombRef.current)
+      clearInterval(reviewTimerRef.current)
+    }
   }, [])
 
   function goToSlide(si, qi = 0) {
@@ -135,6 +153,18 @@ export default function Present() {
     pushToStudent(slideIdx, qIdx, next)
   }
 
+  function skipSlide() {
+    setSkipped(prev => new Set([...prev, slideIdx]))
+    // Record skip on classSkill if present
+    const sl = allSlides[slideIdx]
+    if (sl?.classSkill?.id) {
+      const history = sl.classSkill.rating_history || []
+      history.push({ date: new Date().toISOString(), rating: 0, skipped: true })
+      supabase.from('class_skills').update({ rating_history: history }).eq('id', sl.classSkill.id).then(()=>{})
+    }
+    nextQ()
+  }
+
   function pushToStudent(si, qi, ans) {
     if (si >= allSlides.length) {
       const last = allSlides[allSlides.length - 1]
@@ -150,7 +180,12 @@ export default function Present() {
     ;(slide?.questions || []).forEach(q => { if(byTier[q.tier]) byTier[q.tier].push(q) })
     channel.postMessage({
       type:'slide', isBomb:false, showAns:ans,
-      slideMode: slide?.isSpotlight ? 'single' : (slide?.isBank && !slide?.singleMode) ? 'tiered' : slide?.singleMode ? 'single' : 'tiered',
+      slideMode: slide?.isExplanation ? 'explanation' : slide?.isSpotlight ? 'single' : (slide?.isBank && !slide?.singleMode) ? 'tiered' : slide?.singleMode ? 'single' : 'tiered',
+      isExplanation: slide?.isExplanation || false,
+      expTitle: slide?.expTitle || '',
+      expText: slide?.expText || '',
+      expImage: slide?.expImage || '',
+      expVideo: slide?.expVideo || '',
       isSpotlight: slide?.isSpotlight || false,
       isBank: slide?.isBank || false,
       spotlightIndex: slide?.spotlightIndex,
@@ -253,11 +288,12 @@ export default function Present() {
             { l:'← Prev', fn:prevQ, dis:slideIdx===0&&qIdx===0 },
             { l:showAns?'🙈 Hide':'👁 Reveal', fn:toggleAns, col:'#a78bfa' },
             { l:'Next →', fn:nextQ, dis:isBomb },
+            { l:'⏭ Skip', fn:skipSlide, col:'#f59e0b', dis:isBomb },
             { l:'📺 Student View', fn:openStudentView, col:'#34d399' },
             { l:'✕ Exit', fn:exitPresent, col:'#f87171' },
           ].map(b => (
             <button key={b.l} onClick={b.fn} disabled={b.dis}
-              style={{ padding:'5px 11px', borderRadius:6, fontSize:11, fontWeight:600, cursor:'pointer', border:`1px solid ${b.col||'rgba(255,255,255,.2)'}`, background:'rgba(0,0,0,.3)', color:b.col||'rgba(224,231,255,.7)', opacity:b.dis?.4:1, transition:'all .15s' }}>
+              style={{ padding:'5px 11px', borderRadius:6, fontSize:11, fontWeight:600, cursor:'pointer', border:`1px solid ${b.col||'rgba(255,255,255,.2)'}`, background:'rgba(0,0,0,.3)', color:b.col||'rgba(224,231,255,.7)', opacity:b.dis?0.4:1, transition:'all .15s' }}>
               {b.l}
             </button>
           ))}
@@ -283,6 +319,8 @@ export default function Present() {
       <div style={{ flex:1, overflow:'hidden', display:'flex', flexDirection:'column', padding:'12px 18px 6px', alignItems:'center', minHeight:0 }}>
         {isBomb
           ? <BombSlide left={bombLeft} btbSecs={btbSecs} slide={allSlides[allSlides.length-1]} showAns={showAns} />
+          : slideMode === 'explanation'
+            ? <ExplanationSlide slide={currentSlide} />
           : slideMode === 'single'
             ? <SingleQSlide slide={currentSlide} q={currentQ} showAns={showAns} modeConfig={modeConfig} />
             : <TieredSlide slide={currentSlide} showAns={showAns} />
@@ -303,102 +341,126 @@ export default function Present() {
         )}
 
         {/* Slide dots */}
-        <div style={{ display:'flex', gap:4, paddingBottom:6, flexShrink:0 }}>
+        <div style={{ display:'flex', gap:4, paddingBottom:4, flexShrink:0 }}>
           {Array.from({length:totalSlides},(_,i) => (
             <div key={i} onClick={() => goToSlide(i)}
-              style={{ width:7, height:7, borderRadius:'50%', cursor:'pointer', transition:'all .2s', transform:i===slideIdx?'scale(1.4)':'scale(1)', background:i===slideIdx?'#a78bfa':'rgba(255,255,255,.25)' }} />
+              style={{ width:7, height:7, borderRadius:'50%', cursor:'pointer', transition:'all .2s', transform:i===slideIdx?'scale(1.4)':'scale(1)', background: skipped.has(i)?'#f59e0b':i===slideIdx?'#a78bfa':'rgba(255,255,255,.25)' }} />
           ))}
         </div>
+        {/* 10-minute review timer bar */}
+        <ReviewTimerBar elapsed={reviewElapsed} totalSecs={600} />
+      </div>
+    </div>
+  )
+}
+
+// ── REVIEW TIMER BAR ────────────────────────────────────────
+function ReviewTimerBar({ elapsed, totalSecs }) {
+  const pct = Math.min(100, (elapsed / totalSecs) * 100)
+  const mins = Math.floor(elapsed / 60)
+  const secs = elapsed % 60
+  const overTime = elapsed >= totalSecs
+  const barCol = pct < 60 ? '#34d399' : pct < 85 ? '#f59e0b' : '#f87171'
+  return (
+    <div style={{ width:'100%', flexShrink:0, paddingBottom:4 }}>
+      <div style={{ display:'flex', justifyContent:'space-between', fontSize:10, color:'rgba(224,231,255,.5)', marginBottom:3 }}>
+        <span>⏱ Review timer</span>
+        <span style={{ color: overTime?'#f87171':'rgba(224,231,255,.5)', fontWeight: overTime?700:400 }}>
+          {overTime ? `+${Math.floor((elapsed-totalSecs)/60)}:${String((elapsed-600)%60).padStart(2,'0')} over` : `${mins}:${String(secs).padStart(2,'0')} / 10:00`}
+        </span>
+      </div>
+      <div style={{ height:5, background:'rgba(255,255,255,.1)', borderRadius:3, overflow:'hidden' }}>
+        <div style={{ height:'100%', width:`${pct}%`, background:barCol, borderRadius:3, transition:'width .5s linear' }} />
       </div>
     </div>
   )
 }
 
 // ── TIERED SLIDE ──
-// T1: up to 6 questions (quick practice volume)
-// T2: up to 6 questions (core skill practice)
-// T3: up to 2 questions (extension thinking)
-// T4: 1 challenge question
+// T1: snap to 1,2,3,4,6 questions — 3×2 grid when 6, 2×2 when 4, etc.
+// T2: same
+// T3: 1 or 2 questions side-by-side
+// T4: 1 challenge question full width
 function TieredSlide({ slide, showAns }) {
   if (!slide) return null
   const sk = slide.skill || {}
 
-  const TIER_LIMITS = { 1: 6, 2: 6, 3: 2, 4: 1 }
-
+  // Sort and bucket by tier
   const byTier = {1:[],2:[],3:[],4:[]}
-  ;(slide.questions || []).forEach(q => { if(byTier[q.tier]) byTier[q.tier].push(q) })
+  ;(slide.questions || []).forEach(q => { if (byTier[q.tier]) byTier[q.tier].push(q) })
 
+  // Pick questions for each tier — snap to clean grid count
   const tieredRows = [1,2,3,4].map(t => {
     const qs = [...byTier[t]]
-    if (!qs.length) return null
-    // Pick shortest questions up to the tier limit
-    const selected = qs
       .sort((a,b) => (a.question_text||a.q||'').length - (b.question_text||b.q||'').length)
-      .slice(0, TIER_LIMITS[t])
-    return { tier: t, qs: selected }
+    if (!qs.length) return null
+    const maxN = t <= 2 ? 6 : t === 3 ? 2 : 1
+    const count = snapCount(qs.length, maxN)
+    return { tier: t, qs: qs.slice(0, count) }
   }).filter(Boolean)
 
   if (!tieredRows.length) return (
-    <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', color:'rgba(224,231,255,.4)', fontSize:18 }}>
-      No questions yet — try re-seeding the question bank.
+    <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center',
+      color:'rgba(224,231,255,.4)', fontSize:16, fontStyle:'italic' }}>
+      No questions yet — re-seed the question bank.
     </div>
   )
 
-  // Auto font-size: T1/T2 short questions can be smaller; T3/T4 get more space
-  const t1t2Qs = tieredRows.filter(r => r.tier <= 2).flatMap(r => r.qs)
-  const t3t4Qs = tieredRows.filter(r => r.tier >= 3).flatMap(r => r.qs)
-  const maxShortLen = t1t2Qs.length ? Math.max(...t1t2Qs.map(q => (q.question_text||q.q||'').length)) : 20
-  const maxLongLen  = t3t4Qs.length ? Math.max(...t3t4Qs.map(q => (q.question_text||q.q||'').length)) : 40
-
-  // T1/T2 font: smaller because more items
-  const fontSm = maxShortLen > 60 ? 10 : maxShortLen > 40 ? 11 : maxShortLen > 25 ? 12 : 13
-  // T3/T4 font: larger because fewer items and longer reasoning questions
-  const fontLg = maxLongLen > 120 ? 12 : maxLongLen > 80 ? 13 : maxLongLen > 50 ? 14 : 15
+  // Font sizes: T1/T2 smaller (more items), T3/T4 larger (fewer items, longer text)
+  const t12Qs = tieredRows.filter(r=>r.tier<=2).flatMap(r=>r.qs)
+  const t34Qs = tieredRows.filter(r=>r.tier>=3).flatMap(r=>r.qs)
+  const maxShort = t12Qs.length ? Math.max(...t12Qs.map(q=>(q.question_text||q.q||'').length)) : 20
+  const maxLong  = t34Qs.length ? Math.max(...t34Qs.map(q=>(q.question_text||q.q||'').length)) : 40
+  const fontSm = maxShort > 60 ? 10 : maxShort > 40 ? 11 : maxShort > 25 ? 12 : 13
+  const fontLg = maxLong > 120 ? 11 : maxLong > 80 ? 12 : maxLong > 50 ? 13 : 15
+  const ansSm = Math.max(9, fontSm - 1)
+  const ansLg = Math.max(10, fontLg - 1)
 
   return (
     <div style={{ width:'100%', maxWidth:1400, display:'flex', flexDirection:'column', flex:1, minHeight:0, overflow:'hidden' }}>
 
       {/* Skill header */}
       <div style={{ textAlign:'center', marginBottom:6, flexShrink:0 }}>
-        <div style={{ color:'#e0e7ff', fontFamily:"'Syne', sans-serif", fontWeight:800, fontSize:'clamp(14px,1.7vw,22px)' }}>{sk.skill_name}</div>
-        <div style={{ color:'rgba(224,231,255,.45)', fontSize:11, marginTop:1 }}>
+        <div style={{ color:'#e0e7ff', fontFamily:"'Syne',sans-serif", fontWeight:800,
+          fontSize:'clamp(13px,1.6vw,21px)' }}>{sk.skill_name}</div>
+        <div style={{ color:'rgba(224,231,255,.45)', fontSize:10, marginTop:1 }}>
           {sk.topic} · {sk.strand} · {sk.year_level==='F'?'Foundational':`Year ${sk.year_level}`}
         </div>
       </div>
 
-      {/* Tier rows */}
-      <div style={{ display:'flex', flexDirection:'column', gap:5, flex:1, minHeight:0, overflow:'hidden' }}>
+      {/* Tier rows — stretch to fill all available space */}
+      <div style={{ display:'flex', flexDirection:'column', gap:5, flex:1, minHeight:0, overflow:'hidden', alignContent:'stretch' }}>
         {tieredRows.map(({ tier: t, qs }) => {
-          const isHighTier = t >= 3
-          const font = isHighTier ? fontLg : fontSm
-          const ansFont = Math.max(9, font - 2)
-
-          // Column layout: T1/T2 → 3 cols (2 rows of 3); T3 → 2 cols; T4 → 1 col
-          const cols = t === 4 ? 1 : t === 3 ? Math.min(qs.length, 2) : bestCols(qs.length, 3)
-
-          // T1/T2 get proportionally less height (more rows), T3/T4 get more
-          const flexWeight = t <= 2 ? 1.2 : t === 3 ? 1.8 : 2.2
+          const isHigh = t >= 3
+          const font = isHigh ? fontLg : fontSm
+          const ansFont = isHigh ? ansLg : ansSm
+          const cols = gridCols(qs.length)
+          const rows = qs.length / cols
+          // T3/T4 get more vertical space since they have fewer, longer questions
+          const flexW = t === 1 ? 1 : t === 2 ? 1 : t === 3 ? 1.8 : 2.2
 
           return (
-            <div key={t} style={{ display:'flex', gap:5, flex:flexWeight, minHeight:0, overflow:'hidden' }}>
-              {/* Tier label — vertical pill */}
+            <div key={t} style={{ display:'flex', gap:5, flex:flexW, minHeight:0, overflow:'hidden', alignItems:'stretch' }}>
+
+              {/* Tier label pill — vertical */}
               <div style={{
                 background: TIER_BG[t], border:`1.5px solid ${TIER_BORDER[t]}`,
                 color: TIER_COLS[t], padding:'4px 5px', borderRadius:7,
                 fontSize: t <= 2 ? 8 : 10, fontWeight:800, letterSpacing:'.06em',
                 writingMode:'vertical-rl', transform:'rotate(180deg)',
                 display:'flex', alignItems:'center', justifyContent:'center',
-                flexShrink:0, minWidth: t <= 2 ? 24 : 28, textTransform:'uppercase'
+                flexShrink:0, minWidth: t <= 2 ? 22 : 28, textTransform:'uppercase',
               }}>
                 {t === 4 ? '🏆' : `T${t}`}
               </div>
 
-              {/* Question grid */}
+              {/* Question grid — cells stretch to fill all space */}
               <div style={{
                 display:'grid',
                 gridTemplateColumns:`repeat(${cols}, 1fr)`,
+                gridTemplateRows:`repeat(${rows}, 1fr)`,
                 gap:5, flex:1, minHeight:0, overflow:'hidden',
-                alignContent:'start'
+                alignItems:'stretch', alignContent:'stretch',
               }}>
                 {qs.map((q, qi) => {
                   const qtext = q.question_text || q.q || ''
@@ -408,40 +470,48 @@ function TieredSlide({ slide, showAns }) {
 
                   return (
                     <div key={qi} style={{
-                      background: t === 4 ? 'linear-gradient(135deg,rgba(255,255,255,.99),rgba(255,251,235,.98))' : 'rgba(255,255,255,.97)',
-                      border: `${t === 4 ? 2 : 1.5}px solid ${TIER_BORDER[t]}`,
-                      borderRadius: 8, padding:'7px 10px',
+                      background: t === 4
+                        ? 'linear-gradient(135deg,rgba(255,255,255,.99),rgba(255,251,235,.98))'
+                        : 'rgba(255,255,255,.97)',
+                      border: `${t===4?2:1.5}px solid ${TIER_BORDER[t]}`,
+                      borderRadius:8, padding:'8px 10px',
                       display:'flex', flexDirection:'column',
-                      overflow:'hidden', minHeight:0,
+                      alignItems:'center', justifyContent:'center',
+                      overflow:'hidden', height:'100%', boxSizing:'border-box',
+                      textAlign:'center',
                     }}>
-                      {/* Label row */}
-                      <div style={{ display:'flex', alignItems:'center', gap:4, marginBottom:3 }}>
-                        <span style={{ color:TIER_COLS[t], fontSize:9, fontWeight:800, letterSpacing:'.04em' }}>
-                          {t === 4 ? '🏆 CHALLENGE' : `${t}.${qi+1}`}
-                        </span>
-                        {isGen && <span style={{ fontSize:8, color:'#94a3b8' }}>⚡gen</span>}
+                      {/* Q label */}
+                      <div style={{ display:'flex', alignItems:'center', gap:4,
+                        color:TIER_COLS[t], fontSize:9, fontWeight:800,
+                        letterSpacing:'.04em', marginBottom:3, alignSelf:'flex-start' }}>
+                        {t === 4 ? '🏆 CHALLENGE' : `${t}.${qi+1}`}
+                        {isGen && <span style={{ fontSize:7, opacity:.5 }}>⚡</span>}
                       </div>
                       {/* Image */}
-                      {img && <img src={img} alt="" style={{ maxHeight: t >= 3 ? 80 : 50, objectFit:'contain', marginBottom:4, borderRadius:3 }} />}
-                      {/* Question text */}
+                      {img && <img src={img} alt="" style={{
+                        maxHeight: t>=3 ? 70 : 45, maxWidth:'90%',
+                        objectFit:'contain', marginBottom:4, borderRadius:3
+                      }} />}
+                      {/* Question text — centered */}
                       <div style={{
-                        color: '#0f172a',
-                        fontFamily: "'JetBrains Mono', monospace",
-                        fontSize: `${font}px`,
-                        lineHeight: 1.45,
-                        flex:1, overflow:'hidden',
+                        color:'#0f172a',
+                        fontFamily:"'JetBrains Mono',monospace",
+                        fontSize:`${font}px`, lineHeight:1.4,
                         whiteSpace:'pre-wrap', wordBreak:'break-word',
-                        fontWeight: t === 4 ? 600 : 400,
+                        fontWeight: t===4 ? 600 : 400,
+                        textAlign:'center',
+                        flex:1, display:'flex', alignItems:'center', justifyContent:'center',
+                        width:'100%',
                       }}>
                         {qtext}
                       </div>
                       {/* Answer */}
                       {showAns && (
                         <div style={{
-                          color:'#166534', fontFamily:"'JetBrains Mono', monospace",
+                          color:'#166534', fontFamily:"'JetBrains Mono',monospace",
                           fontSize:`${ansFont}px`, fontWeight:600,
-                          borderTop:`1px solid ${TIER_BORDER[t]}`, paddingTop:3, marginTop:3,
-                          overflow:'hidden',
+                          borderTop:`1px solid ${TIER_BORDER[t]}`,
+                          paddingTop:3, marginTop:3, width:'100%', textAlign:'center',
                         }}>
                           → {atext}
                         </div>
@@ -515,6 +585,29 @@ function SingleQSlide({ slide, q, showAns, modeConfig }) {
           )}
         </div>
       </div>
+    </div>
+  )
+}
+
+// ── EXPLANATION SLIDE ───────────────────────────────────────
+function ExplanationSlide({ slide }) {
+  const yt = slide.expVideo ? slide.expVideo.replace('watch?v=', 'embed/').replace('youtu.be/', 'youtube.com/embed/') : ''
+  return (
+    <div style={{ width:'100%', maxWidth:960, display:'flex', flexDirection:'column', flex:1, gap:16, justifyContent:'center', alignItems:'center' }}>
+      <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'clamp(20px,3vw,36px)', color:'#e0e7ff', textAlign:'center' }}>
+        {slide.expTitle || 'Explanation'}
+      </div>
+      {slide.expImage && (
+        <img src={slide.expImage} alt="" style={{ maxHeight:240, maxWidth:'90%', objectFit:'contain', borderRadius:12, boxShadow:'0 4px 20px rgba(0,0,0,.3)' }} />
+      )}
+      {yt && (
+        <iframe src={yt} style={{ width:'100%', maxWidth:640, height:360, borderRadius:12, border:'none' }} allowFullScreen title="Video" />
+      )}
+      {slide.expText && (
+        <div style={{ background:'rgba(255,255,255,.95)', borderRadius:14, padding:'20px 28px', maxWidth:760, width:'100%', color:'#1e293b', fontFamily:"'Figtree',sans-serif", fontSize:'clamp(15px,1.8vw,22px)', lineHeight:1.7, textAlign:'center', boxShadow:'0 4px 20px rgba(0,0,0,.2)' }}>
+          {slide.expText}
+        </div>
+      )}
     </div>
   )
 }
