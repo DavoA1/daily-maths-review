@@ -319,7 +319,7 @@ export default function Present() {
       )}
 
       {/* Main content */}
-      <div style={{ flex:1, overflow:'hidden', display:'flex', flexDirection:'column', padding:'12px 18px 6px', alignItems:'center', minHeight:0 }}>
+      <div style={{ flex:1, overflow:'hidden', display:'flex', flexDirection:'column', padding:slideMode==='explanation'?'0':'12px 18px 6px', alignItems:'center', minHeight:0, position:'relative' }}>
         {isBomb
           ? <BombSlide left={bombLeft} btbSecs={btbSecs} slide={allSlides[allSlides.length-1]} showAns={showAns} />
           : slideMode === 'explanation'
@@ -604,58 +604,61 @@ function SingleQSlide({ slide, q, showAns, modeConfig }) {
 
 // ── EXPLANATION SLIDE ───────────────────────────────────────
 function ExplanationSlide({ slide }) {
-  // Debug: log what we received
-  console.log('[ExplanationSlide] slide keys:', Object.keys(slide || {}))
-  console.log('[ExplanationSlide] expTitle:', slide?.expTitle)
-  console.log('[ExplanationSlide] expText:', slide?.expText)
-  console.log('[ExplanationSlide] expImage length:', slide?.expImage?.length)
-
   const title = slide?.expTitle || ''
   const text  = slide?.expText  || ''
   const image = slide?.expImage || ''
   const video = slide?.expVideo || ''
-  const yt = video.replace('watch?v=','embed/').replace('youtu.be/','youtube.com/embed/')
+  const yt = video ? video.replace('watch?v=','embed/').replace('youtu.be/','youtube.com/embed/') : ''
   const hasMedia = image || yt
 
   return (
-    <div style={{ width:'100%', maxWidth:1100, display:'flex', flexDirection:'column', flex:1, minHeight:0 }}>
-
+    <div style={{
+      position:'absolute', inset:0,
+      display:'flex', flexDirection:'column',
+      padding:'12px 20px', gap:12,
+    }}>
       {/* Title banner */}
-      <div style={{ background:'rgba(160,74,240,.2)', border:'2px solid rgba(160,74,240,.4)',
-        borderRadius:12, padding:'16px 28px', marginBottom:12, textAlign:'center', flexShrink:0 }}>
+      <div style={{
+        background:'rgba(160,74,240,.2)', border:'2px solid rgba(160,74,240,.4)',
+        borderRadius:12, padding:'14px 28px', textAlign:'center', flexShrink:0,
+      }}>
         <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800,
-          fontSize:'clamp(20px,2.8vw,40px)', color:'#e0e7ff' }}>
+          fontSize:'clamp(18px,2.5vw,38px)', color:'#e0e7ff', lineHeight:1.2 }}>
           {title || 'Explanation'}
         </div>
       </div>
 
-      {/* Content card — always renders, unconditionally */}
-      <div style={{ flex:1, minHeight:0, background:'rgba(255,255,255,.97)', borderRadius:12,
-        padding:'24px 32px', overflow:'auto', boxShadow:'0 4px 24px rgba(0,0,0,.3)',
-        display:'flex', gap:28,
-        flexDirection: hasMedia ? 'row' : 'column',
+      {/* Content card — position absolute gives it definite height */}
+      <div style={{
+        flex:1, background:'rgba(255,255,255,.97)', borderRadius:12,
+        padding:'24px 32px', overflow:'auto',
+        boxShadow:'0 4px 24px rgba(0,0,0,.3)',
+        display:'flex', gap:28, flexDirection: hasMedia ? 'row' : 'column',
         alignItems: hasMedia ? 'flex-start' : 'center',
-        justifyContent: (text || image || yt) ? 'flex-start' : 'center' }}>
+        justifyContent:'center',
+      }}>
 
-        {/* Always show text area */}
-        <div style={{ flex:1, color:'#1e293b', fontFamily:"'Figtree',sans-serif",
-          fontSize:'clamp(17px,2.2vw,28px)', lineHeight:1.8,
+        {/* Text */}
+        <div style={{
+          flex:1, color:'#1e293b', fontFamily:"'Figtree',sans-serif",
+          fontSize:'clamp(16px,2vw,26px)', lineHeight:1.8,
           whiteSpace:'pre-wrap', wordBreak:'break-word',
-          textAlign: hasMedia ? 'left' : 'center' }}>
-          {text || <span style={{ color:'#94a3b8', fontStyle:'italic' }}>No text added.</span>}
+          textAlign: hasMedia ? 'left' : 'center',
+        }}>
+          {text || <span style={{ color:'#94a3b8', fontStyle:'italic', fontSize:16 }}>No explanation text added.</span>}
         </div>
 
         {/* Image */}
         {image && !yt && (
           <div style={{ flexShrink:0, maxWidth:'45%', alignSelf:'center' }}>
-            <img src={image} alt="" style={{ width:'100%', maxHeight:360,
+            <img src={image} alt="" style={{ width:'100%', maxHeight:380,
               objectFit:'contain', borderRadius:8 }} />
           </div>
         )}
 
         {/* Video */}
         {yt && (
-          <div style={{ flexShrink:0, width:'45%', alignSelf:'flex-start' }}>
+          <div style={{ flexShrink:0, width:'45%' }}>
             <iframe src={yt} style={{ width:'100%', aspectRatio:'16/9',
               borderRadius:8, border:'none' }} allowFullScreen title="Video" />
           </div>

@@ -1022,18 +1022,21 @@ export default function Generate() {
       {expModalOpen && <ExplanationSlideModal
         initial={editingExpSlide?.slide || null}
         onSave={(data) => {
+          console.log('[ExpModal] Saving data:', JSON.stringify({ expTitle: data.expTitle, expText: data.expText?.slice(0,50), expImage: data.expImage?.slice(0,30), expVideo: data.expVideo }))
           if (editingExpSlide) {
-            // Update existing slide
             const si = editingExpSlide.si
             setSlides(s => { const n=[...s]; n[si]={...n[si],...data}; setCurrentSlides(n); return n })
           } else {
-            // Add new slide
             const newSlide = {
               id: `exp-${Date.now()}`, isExplanation: true, singleMode: true, isBank: false,
               skill: { skill_name: data.expTitle || 'Explanation', strand: '', year_level: '', topic: '' },
               questions: [], btbEasy: '', btbHard: '', btbChain: '',
-              ...data
+              expTitle: data.expTitle || '',
+              expText:  data.expText  || '',
+              expImage: data.expImage || '',
+              expVideo: data.expVideo || '',
             }
+            console.log('[ExpModal] New slide created:', JSON.stringify({ expTitle: newSlide.expTitle, expText: newSlide.expText?.slice(0,50), isExplanation: newSlide.isExplanation }))
             setSlides(s => { const n=[...s, newSlide]; setCurrentSlides(n); return n })
           }
           setExpModalOpen(false)
