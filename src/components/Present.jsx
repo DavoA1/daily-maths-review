@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { CURRENT_SLIDES } from './Generate.jsx'
 import { supabase } from '../lib/supabase.js'
 import { useAuth } from '../lib/auth.jsx'
 
@@ -54,7 +55,8 @@ export default function Present() {
   const { state } = useLocation()
   const navigate = useNavigate()
   const { user } = useAuth()
-  const allSlides = state?.slides || []
+  // Use CURRENT_SLIDES (updated by Generate) if available, fall back to route state
+  const allSlides = (CURRENT_SLIDES && CURRENT_SLIDES.length > 0 ? CURRENT_SLIDES : state?.slides) || []
   const timerSecs = state?.timerSecs || 20
   const btbSecs = state?.btbSecs || 90
 

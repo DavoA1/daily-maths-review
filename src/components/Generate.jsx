@@ -297,6 +297,8 @@ export default function Generate() {
   const [addTopicOpen, setAddTopicOpen] = useState(false)
   const [allSkills, setAllSkills] = useState([])
   const [skippedSlides, setSkippedSlides] = useState(new Set())
+  const [expModalOpen, setExpModalOpen] = useState(false)
+  const [editingExpSlide, setEditingExpSlide] = useState(null) // {si, slide} for editing existing
   const qMap_ref = useRef({})
   const [editQ, setEditQ] = useState({ tier: 1, type: 'std', q: '', a: '', vc: '' })
   const [summary, setSummary] = useState(null)
@@ -710,13 +712,7 @@ export default function Generate() {
               <button className="btn btn-secondary" onClick={() => setAddTopicOpen(true)} style={{ fontSize: 12 }}>
                 + Add Topic
               </button>
-              <button className="btn btn-secondary" onClick={() => {
-                const expSlide = { id: `exp-${Date.now()}`, isExplanation: true, singleMode: true, isBank: false,
-                  skill: { skill_name: 'Explanation', strand: '', year_level: '', topic: '' },
-                  expTitle: '', expText: '', expImage: '', expVideo: '',
-                  questions: [], btbEasy: '', btbHard: '', btbChain: '' }
-                setSlides(s => { const n = [...s, expSlide]; setCurrentSlides(n); return n })
-              }} style={{ fontSize: 12 }}>
+              <button className="btn btn-secondary" onClick={() => { setEditingExpSlide(null); setExpModalOpen(true) }} style={{ fontSize: 12 }}>
                 + Explanation Slide
               </button>
             </>
@@ -825,16 +821,18 @@ export default function Generate() {
                       <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--b1)', display: 'flex', alignItems: 'center', gap: 8 }}>
                         <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4, background: 'rgba(160,74,240,.15)', color: 'var(--pur)' }}>📖 Explanation Slide</span>
                         <span style={{ flex: 1, fontSize: 12, color: 'var(--td)' }}>{slide.expTitle || 'Untitled explanation'}</span>
+                        <button className="btn btn-ghost btn-sm" style={{ color: 'var(--pur)', fontSize: 11 }} onClick={() => { setEditingExpSlide({si, slide}); setExpModalOpen(true) }}>Edit</button>
                         <button className="btn btn-ghost btn-sm" style={{ color: 'var(--td)', fontSize: 12 }} onClick={() => moveSlide(si, -1)}>↑</button>
                         <button className="btn btn-ghost btn-sm" style={{ color: 'var(--td)', fontSize: 12 }} onClick={() => moveSlide(si, 1)}>↓</button>
                         <button className="btn btn-ghost btn-sm" style={{ color: 'var(--red)', fontSize: 14 }} onClick={() => removeSlide(si)}>✕</button>
                       </div>
-                      <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                        <input className="input" placeholder="Title / heading..." value={slide.expTitle||''} onChange={e => setSlides(s => { const n=[...s]; n[si]={...n[si],expTitle:e.target.value}; setCurrentSlides(n); return n })} />
-                        <textarea className="input" rows={3} placeholder="Explanation text — key concept, worked example, hint..." value={slide.expText||''} onChange={e => setSlides(s => { const n=[...s]; n[si]={...n[si],expText:e.target.value}; setCurrentSlides(n); return n })} style={{ resize:'vertical', fontFamily:'var(--font-mono)', fontSize:12 }} />
-                        <div style={{ display:'flex', gap:8 }}>
-                          <input className="input" style={{ flex:1, fontSize:11 }} placeholder="Image URL (optional)..." value={slide.expImage||''} onChange={e => setSlides(s => { const n=[...s]; n[si]={...n[si],expImage:e.target.value}; setCurrentSlides(n); return n })} />
-                          <input className="input" style={{ flex:1, fontSize:11 }} placeholder="YouTube/video URL (optional)..." value={slide.expVideo||''} onChange={e => setSlides(s => { const n=[...s]; n[si]={...n[si],expVideo:e.target.value}; setCurrentSlides(n); return n })} />
+                      {/* Compact preview of content */}
+                      <div style={{ padding: '8px 14px', display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                        {slide.expImage && <img src={slide.expImage} alt="" style={{ height: 48, width: 64, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }} />}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          {slide.expText && <div style={{ fontSize: 11, color: 'var(--td)', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{slide.expText}</div>}
+                          {slide.expVideo && <div style={{ fontSize: 10, color: 'var(--blu)', marginTop: 2 }}>🎬 Video attached</div>}
+                          {!slide.expText && !slide.expImage && !slide.expVideo && <div style={{ fontSize: 11, color: 'var(--tm)', fontStyle: 'italic' }}>Click Edit to add content</div>}
                         </div>
                       </div>
                     </div>
@@ -961,6 +959,29 @@ export default function Generate() {
       {toast && <div className="toast">{toast}</div>}
 
       {/* ── ADD TOPIC MODAL ── */}
+      {expModalOpen && <ExplanationSlideModal
+        initial={editingExpSlide?.slide || null}
+        onSave={(data) => {
+          if (editingExpSlide) {
+            // Update existing slide
+            const si = editingExpSlide.si
+            setSlides(s => { const n=[...s]; n[si]={...n[si],...data}; setCurrentSlides(n); return n })
+          } else {
+            // Add new slide
+            const newSlide = {
+              id: `exp-${Date.now()}`, isExplanation: true, singleMode: true, isBank: false,
+              skill: { skill_name: data.expTitle || 'Explanation', strand: '', year_level: '', topic: '' },
+              questions: [], btbEasy: '', btbHard: '', btbChain: '',
+              ...data
+            }
+            setSlides(s => { const n=[...s, newSlide]; setCurrentSlides(n); return n })
+          }
+          setExpModalOpen(false)
+          setEditingExpSlide(null)
+        }}
+        onClose={() => { setExpModalOpen(false); setEditingExpSlide(null) }}
+      />}
+
       {addTopicOpen && <AddTopicToSlides
         allSkills={allSkills}
         onAdd={(sk) => {
@@ -1046,6 +1067,91 @@ function AddTopicToSlides({ allSkills, onAdd, onClose }) {
         <div style={{ display:'flex',gap:8 }}>
           <button className="btn btn-primary" disabled={!skillId} onClick={() => onAdd(selectedSkill)}>Add to Review</button>
           <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── EXPLANATION SLIDE MODAL ────────────────────────────────
+function ExplanationSlideModal({ initial, onSave, onClose }) {
+  const [expTitle, setExpTitle] = useState(initial?.expTitle || '')
+  const [expText,  setExpText]  = useState(initial?.expText  || '')
+  const [expImage, setExpImage] = useState(initial?.expImage || '')
+  const [expVideo, setExpVideo] = useState(initial?.expVideo || '')
+  const [uploading, setUploading] = useState(false)
+
+  async function handleImageFile(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    const reader = new FileReader()
+    reader.onload = ev => { setExpImage(ev.target.result); setUploading(false) }
+    reader.readAsDataURL(file)
+  }
+
+  function save() {
+    onSave({ expTitle, expText, expImage, expVideo })
+  }
+
+  return (
+    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.65)', backdropFilter:'blur(6px)', zIndex:3000, display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}>
+      <div style={{ background:'var(--s1)', border:'1px solid var(--pur)', borderRadius:14, width:'100%', maxWidth:600, maxHeight:'90vh', overflow:'auto', boxShadow:'0 20px 60px rgba(0,0,0,.5)' }}>
+
+        {/* Header */}
+        <div style={{ padding:'16px 20px', borderBottom:'1px solid var(--b2)', display:'flex', alignItems:'center', gap:10 }}>
+          <span style={{ fontSize:16 }}>📖</span>
+          <div style={{ fontFamily:'var(--font-display)', fontWeight:700, fontSize:16, flex:1 }}>
+            {initial ? 'Edit Explanation Slide' : 'New Explanation Slide'}
+          </div>
+          <button onClick={onClose} style={{ background:'none', border:'none', color:'var(--tm)', cursor:'pointer', fontSize:18, padding:'0 4px' }}>✕</button>
+        </div>
+
+        {/* Body */}
+        <div style={{ padding:20, display:'flex', flexDirection:'column', gap:14 }}>
+
+          <div className="field" style={{ margin:0 }}>
+            <label>Title / Heading</label>
+            <input className="input" placeholder="e.g. How to expand brackets..." value={expTitle} onChange={e => setExpTitle(e.target.value)} autoFocus />
+          </div>
+
+          <div className="field" style={{ margin:0 }}>
+            <label>Explanation Text</label>
+            <textarea className="input textarea" rows={5} placeholder="Write your explanation, worked example, key steps, or hint here..." value={expText} onChange={e => setExpText(e.target.value)} style={{ resize:'vertical', fontFamily:'var(--font-body)', fontSize:14, lineHeight:1.6 }} />
+          </div>
+
+          <div className="field" style={{ margin:0 }}>
+            <label>Image</label>
+            <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
+              <input className="input" style={{ flex:1, minWidth:200 }} placeholder="Paste image URL..." value={expImage.startsWith('data:') ? '' : expImage} onChange={e => setExpImage(e.target.value)} />
+              <label style={{ padding:'9px 14px', background:'var(--s2)', border:'1px solid var(--b2)', borderRadius:'var(--rs)', cursor:'pointer', fontSize:12, color:'var(--td)', whiteSpace:'nowrap', flexShrink:0 }}>
+                {uploading ? '⏳ Uploading...' : '📁 Upload file'}
+                <input type="file" accept="image/*" style={{ display:'none' }} onChange={handleImageFile} />
+              </label>
+            </div>
+            {expImage && (
+              <div style={{ marginTop:8, display:'flex', alignItems:'center', gap:10, padding:'8px 10px', background:'var(--s2)', borderRadius:'var(--rs)' }}>
+                <img src={expImage} alt="" style={{ height:60, maxWidth:120, objectFit:'contain', borderRadius:4 }} />
+                <div style={{ flex:1, fontSize:11, color:'var(--tm)', wordBreak:'break-all' }}>{expImage.startsWith('data:') ? '📎 Uploaded image' : expImage.slice(0,60)+'...'}</div>
+                <button onClick={() => setExpImage('')} style={{ background:'none', border:'1px solid var(--red)', color:'var(--red)', borderRadius:4, padding:'3px 8px', cursor:'pointer', fontSize:11, flexShrink:0 }}>Remove</button>
+              </div>
+            )}
+          </div>
+
+          <div className="field" style={{ margin:0 }}>
+            <label>Video URL (YouTube or other)</label>
+            <input className="input" placeholder="https://youtube.com/watch?v=..." value={expVideo} onChange={e => setExpVideo(e.target.value)} />
+            {expVideo && <div style={{ fontSize:11, color:'var(--blu)', marginTop:4 }}>🎬 Video will be embedded in the slide</div>}
+          </div>
+
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding:'14px 20px', borderTop:'1px solid var(--b2)', display:'flex', gap:8, justifyContent:'flex-end' }}>
+          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary" onClick={save} disabled={!expTitle && !expText && !expImage}>
+            {initial ? 'Save Changes' : 'Add Slide'}
+          </button>
         </div>
       </div>
     </div>
