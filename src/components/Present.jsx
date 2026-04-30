@@ -286,14 +286,12 @@ export default function Present() {
           </div>}
         </div>
 
-        {/* Mode badge for single-question mode */}
         {slideMode === 'single' && currentQ && !isBomb && (
           <div style={{ padding:'4px 12px', borderRadius:6, border:`1px solid ${modeConfig.colour}60`, background:`${modeConfig.colour}25`, color:modeConfig.colour, fontSize:12, fontWeight:700, whiteSpace:'nowrap' }}>
             {modeConfig.label}
           </div>
         )}
 
-        {/* Timer */}
         <div style={{ fontFamily:'monospace', fontSize:24, fontWeight:800, minWidth:56, textAlign:'center', color: urgent ? '#f87171' : isBomb ? '#f87171' : '#a78bfa', animation: urgent ? 'pulse .5s infinite' : 'none' }}>
           {isBomb ? `${bombLeft}s` : `${timeLeft}s`}
         </div>
@@ -306,7 +304,7 @@ export default function Present() {
             { l:'⏭ Skip', fn:skipSlide, col:'#f59e0b', dis:isBomb },
             { l:'📺 Student View', fn:openStudentView, col:'#34d399' },
             { l:'⛶ Full', fn:toggleFullscreen, col:'rgba(224,231,255,.5)' },
-            { l:'\u003f Keys', fn:()=>setShowShortcuts(s=>!s), col:'rgba(224,231,255,.5)' },
+            { l:'⌨ Keys', fn:()=>setShowShortcuts(s=>!s), col:'rgba(224,231,255,.5)' },
             { l:'✕ Exit', fn:exitPresent, col:'#f87171' },
           ].map(b => (
             <button key={b.l} onClick={b.fn} disabled={b.dis}
@@ -343,7 +341,7 @@ export default function Present() {
             : <TieredSlide slide={currentSlide} showAns={showAns} />
         }
 
-        {/* Check-in strip — shown at end of each slide group */}
+        {/* Check-in strip */}
         {!isBomb && (slideMode === 'tiered' || (slideMode === 'single' && qIdx === singleSeq.length - 1)) && (
           <div style={{ width:'100%', maxWidth:1200, marginTop:8, marginBottom:6, padding:'8px 14px', background:'rgba(0,0,0,.3)', border:'1px solid rgba(255,255,255,.1)', borderRadius:10, display:'flex', alignItems:'center', gap:10, flexWrap:'wrap', flexShrink:0 }}>
             <span style={{ color:'rgba(224,231,255,.6)', fontSize:11, fontWeight:700, whiteSpace:'nowrap' }}>Class rating:</span>
@@ -364,10 +362,7 @@ export default function Present() {
               style={{ width:7, height:7, borderRadius:'50%', cursor:'pointer', transition:'all .2s', transform:i===slideIdx?'scale(1.4)':'scale(1)', background: skipped.has(i)?'#f59e0b':i===slideIdx?'#a78bfa':'rgba(255,255,255,.25)' }} />
           ))}
         </div>
-        {/* 10-minute review timer bar */}
         <ReviewTimerBar elapsed={reviewElapsed} totalSecs={600} />
-      </div>
-
       </div>
 
       {/* Keyboard shortcuts overlay */}
@@ -376,16 +371,15 @@ export default function Present() {
           <div style={{ background:'#1e2230', border:'1px solid rgba(255,255,255,.15)', borderRadius:16, padding:'28px 36px', minWidth:360 }} onClick={e=>e.stopPropagation()}>
             <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:18, color:'#e0e7ff', marginBottom:20, textAlign:'center' }}>⌨ Keyboard Shortcuts</div>
             {[
-              ['→  or  Space', 'Next slide / question'],
-              ['←', 'Previous slide'],
+              ['Arrow Right / Space', 'Next slide / question'],
+              ['Arrow Left', 'Previous slide'],
               ['A', 'Reveal / hide answer'],
               ['S', 'Skip slide'],
               ['F', 'Toggle fullscreen'],
-              ['\u003f', 'Show / hide this panel'],  // ? key
               ['Esc', 'Close overlay / exit present'],
             ].map(([key, desc]) => (
               <div key={key} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 0', borderBottom:'1px solid rgba(255,255,255,.07)' }}>
-                <kbd style={{ background:'rgba(255,255,255,.1)', border:'1px solid rgba(255,255,255,.2)', borderRadius:6, padding:'3px 10px', fontFamily:"'JetBrains Mono',monospace", fontSize:13, color:'#a78bfa', letterSpacing:'.05em' }}>{key}</kbd>
+                <kbd style={{ background:'rgba(255,255,255,.1)', border:'1px solid rgba(255,255,255,.2)', borderRadius:6, padding:'3px 10px', fontFamily:"'JetBrains Mono',monospace", fontSize:13, color:'#a78bfa' }}>{key}</kbd>
                 <span style={{ color:'rgba(224,231,255,.7)', fontSize:13 }}>{desc}</span>
               </div>
             ))}
@@ -395,8 +389,6 @@ export default function Present() {
       )}
     </div>
   )
-}
-
 // ── REVIEW TIMER BAR ────────────────────────────────────────
 function ReviewTimerBar({ elapsed, totalSecs }) {
   const pct = Math.min(100, (elapsed / totalSecs) * 100)
