@@ -246,7 +246,7 @@ export default function Present() {
       else if (e.key.toLowerCase() === 'a') toggleAns()
       else if (e.key.toLowerCase() === 's') skipSlide()
       else if (e.key.toLowerCase() === 'f') toggleFullscreen()
-      else if (e.key === '?') setShowShortcuts(s => !s)
+      else if (e.key === '\u003f') setShowShortcuts(s => !s)  // ? key
       else if (e.key === 'Escape') { if (showShortcuts) setShowShortcuts(false); else exitPresent() }
     }
     window.addEventListener('keydown', onKey)
@@ -379,7 +379,7 @@ export default function Present() {
               ['A', 'Reveal / hide answer'],
               ['S', 'Skip slide'],
               ['F', 'Toggle fullscreen'],
-              ['?', 'Show / hide this panel'],
+              ['\u003f', 'Show / hide this panel'],  // ? key
               ['Esc', 'Close overlay / exit present'],
             ].map(([key, desc]) => (
               <div key={key} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 0', borderBottom:'1px solid rgba(255,255,255,.07)' }}>
