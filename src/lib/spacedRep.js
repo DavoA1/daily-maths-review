@@ -1,57 +1,82 @@
-// Spaced repetition intervals in days
-const INTERVALS = [0, 1, 3, 7, 14, 30, 60, 120]
+// ═══════════════════════════════════════════════════════════════
+// SPACED REPETITION — Topic selection logic
+// ═══════════════════════════════════════════════════════════════
 
-export function getDueDate(classSkill) {
-  if (!classSkill.last_reviewed) return new Date()
-  const mastery = classSkill.mastery || 1
-  const interval = INTERVALS[Math.min(mastery, INTERVALS.length - 1)] || 1
-  const due = new Date(classSkill.last_reviewed)
-  due.setDate(due.getDate() + interval)
-  return due
+const MS_PER_DAY = 86400000
+
+function daysSince(isoDate) {
+  if (!isoDate) return 999
+  return Math.floor((Date.now() - new Date(isoDate).getTime()) / MS_PER_DAY)
 }
 
-export function isDue(classSkill) {
-  return getDueDate(classSkill) <= new Date()
+function latestRating(classSkill) {
+  const h = classSkill.rating_history
+  if (!Array.isArray(h) || !h.length) return null
+  return h[h.length - 1].rating
 }
 
-export function updateMastery(current, rating) {
-  // rating 1-5: 1-2 = struggled, 3 = mixed, 4-5 = got it
-  if (rating <= 2) return Math.max(1, current - 1)
-  if (rating >= 4) return Math.min(7, current + 1)
-  return current
+function avgRecentRating(classSkill, n = 3) {
+  const h = classSkill.rating_history
+  if (!Array.isArray(h) || !h.length) return null
+  const recent = h.slice(-n).map(r => r.rating)
+  return recent.reduce((a, b) => a + b, 0) / recent.length
 }
 
-export function getDueConcepts(classSkills, max = 15) {
-  const now = new Date()
-  const due = classSkills
-    .filter(cs => getDueDate(cs) <= now)
-    .sort((a, b) => getDueDate(a) - getDueDate(b))
-  const upcoming = classSkills
-    .filter(cs => getDueDate(cs) > now)
-    .sort((a, b) => getDueDate(a) - getDueDate(b))
-  return [...due, ...upcoming].slice(0, max)
+// ── INCLUSION TIERS ─────────────────────────────────────────
+// Returns one of: 'intensive' | 'moderate' | 'light' | 'review' | null
+export function getInclusionTier(cs) {
+  const days = daysSince(cs.last_reviewed)
+  const score = avgRecentRating(cs) || cs.mastery || 1
+
+  // Must include — recent or struggling
+  if (days <= 3 || score <= 2) return 'intensive'
+  // Should include — getting there
+  if (days <= 7 || score <= 3) return 'moderate'
+  // Include for retrieval — doing ok
+  if (days <= 14 || score <= 4) return 'light'
+  // Long-term retrieval only — mastered
+  if (days <= 30) return 'review'
+  // Too old for automatic inclusion (but teacher can manually add)
+  return null
 }
 
-export function getUpcomingSkills(classSkills, daysAhead = 14) {
-  const now = new Date()
-  const future = new Date(now.getTime() + daysAhead * 86400000)
-  return classSkills
-    .filter(cs => {
-      if (!cs.scheduled_date) return false
-      const d = new Date(cs.scheduled_date)
-      return d > now && d <= future
+// What slides each inclusion tier gets:
+//   intensive: WC spotlight + MC spotlight + full bank
+//   moderate:  T2 spotlight + MC spotlight + full bank
+//   light:     MC spotlight + full bank
+//   review:    full bank only
+
+export function getDueConcepts(classSkills, maxTopics = 10) {
+  const withTiers = classSkills
+    .filter(cs => cs.skill) // must have skill data
+    .map(cs => ({ cs, tier: getInclusionTier(cs) }))
+    .filter(x => x.tier !== null)
+    .sort((a, b) => {
+      // Priority: intensive > moderate > light > review
+      const order = { intensive: 0, moderate: 1, light: 2, review: 3 }
+      if (order[a.tier] !== order[b.tier]) return order[a.tier] - order[b.tier]
+      // Within same tier: most recently reviewed first
+      return daysSince(a.cs.last_reviewed) - daysSince(b.cs.last_reviewed)
     })
-    .sort((a, b) => new Date(a.scheduled_date) - new Date(b.scheduled_date))
+
+  return withTiers.slice(0, maxTopics).map(x => ({
+    ...x.cs,
+    _inclusionTier: x.tier
+  }))
+}
+
+export function getUpcomingSkills(classSkills, daysAhead = 7) {
+  return classSkills.filter(cs => {
+    if (!cs.scheduled_date) return false
+    const daysUntil = Math.ceil((new Date(cs.scheduled_date) - Date.now()) / MS_PER_DAY)
+    return daysUntil >= 0 && daysUntil <= daysAhead
+  })
 }
 
 export function getRetrievalGaps(classSkills) {
-  const now = new Date()
-  return classSkills
-    .filter(cs => {
-      if (!cs.scheduled_date) return false
-      const daysAgo = (now - new Date(cs.scheduled_date)) / 86400000
-      return daysAgo > 28 && (cs.mastery || 1) < 4
-    })
-    .sort((a, b) => (a.mastery || 1) - (b.mastery || 1))
-    .slice(0, 2)
+  return classSkills.filter(cs => {
+    const days = daysSince(cs.last_reviewed)
+    const score = avgRecentRating(cs) || cs.mastery || 1
+    return days > 14 && days <= 60 && score >= 4
+  }).slice(0, 3)
 }
