@@ -306,7 +306,7 @@ export default function Present() {
             { l:'⏭ Skip', fn:skipSlide, col:'#f59e0b', dis:isBomb },
             { l:'📺 Student View', fn:openStudentView, col:'#34d399' },
             { l:'⛶ Full', fn:toggleFullscreen, col:'rgba(224,231,255,.5)' },
-            { l:'? Keys', fn:()=>setShowShortcuts(s=>!s), col:'rgba(224,231,255,.5)' },
+            { l:'\u003f Keys', fn:()=>setShowShortcuts(s=>!s), col:'rgba(224,231,255,.5)' },
             { l:'✕ Exit', fn:exitPresent, col:'#f87171' },
           ].map(b => (
             <button key={b.l} onClick={b.fn} disabled={b.dis}
