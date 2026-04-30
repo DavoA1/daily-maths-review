@@ -13,9 +13,9 @@ export const BTC_CHAINS = {
 
   // ── NUMBER ──────────────────────────────────────────────
   'Integer operations': [
-    chain(64, ['÷ 8', '× (−3)', '+ 15', '÷ (−3)'], '−5'),
-    chain(−12, ['× (−4)', '− 18', '÷ 6', '× (−2)'], '−10'),
-    chain(3, ['²', '× (−2)', '+ 50', '÷ (−4)'], '−8'),
+    chain(64, ['÷ 8', '× (-3)', '+ 15', '÷ (-3)'], '−5'),
+    chain(-12, ['× (-4)', '− 18', '÷ 6', '× (-2)'], '−10'),
+    chain(3, ['²', '× (-2)', '+ 50', '÷ (-4)'], '−8'),
   ],
   'Rounding': [
     chain(3.14159, ['round to 2 d.p.', '× 10', '− 1.4', 'round to 1 d.p.'], '29.9'),
@@ -45,11 +45,11 @@ export const BTC_CHAINS = {
   // ── ALGEBRA ─────────────────────────────────────────────
   'Algebraic expressions': [
     chain('x = 3', ['find x²', '+ 2x', '− 3', '÷ 6'], '2'),
-    chain('a = −2, b = 3', ['find a² + b', '× 2', '− 1', '÷ 7'], '1'),
+    chain('a = -2, b = 3', ['find a² + b', '× 2', '− 1', '÷ 7'], '1'),
   ],
   'Expanding': [
     chain('2(x + 3)', ['expand', 'add 3x − 1', 'substitute x = 2', '÷ 3'], '5'),
-    chain('−3(x − 4)', ['expand', 'add 2x + 1', 'substitute x = 5', '× (−1)'], '−16'),
+    chain('−3(x − 4)', ['expand', 'add 2x + 1', 'substitute x = 5', '× (-1)'], '−16'),
   ],
   'Factorising': [
     chain('x² + 5x + 6', ['factorise', 'find positive root', '× 4', '− 1'], '11'),
@@ -80,7 +80,7 @@ export const BTC_CHAINS = {
     chain('(0,0) and (6,8)', ['find distance', '÷ 5', '× 3', '+ 7'], '13'),
   ],
   'Quadratic equations': [
-    chain('x² + 7x + 12 = 0', ['factorise', 'find larger root', '× (−1)', '+ 20'], '17'),
+    chain('x² + 7x + 12 = 0', ['factorise', 'find larger root', '× (-1)', '+ 20'], '17'),
     chain('x² − 5x + 6 = 0', ['solve', 'find product of roots', '× 3', '− 12'], '6'),
   ],
   'Parabolas': [
@@ -109,7 +109,7 @@ export const BTC_CHAINS = {
   // ── INDICES ─────────────────────────────────────────────
   'Index notation': [
     chain('2⁴', ['evaluate', '÷ 8', '× 3', '+ 2⁰'], '7'),
-    chain('(−3)²', ['evaluate', '+ (−3)³', '÷ (−18)', '× 4'], '−4'),
+    chain('(-3)²', ['evaluate', '+ (-3)³', '÷ (-18)', '× 4'], '−4'),
   ],
   'Index laws': [
     chain('x⁵ × x³', ['simplify: find index', '÷ 4', '+ x⁰ value', '× 3'], '9'),
