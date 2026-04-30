@@ -778,6 +778,8 @@ function ExplanationSlide({ slide }) {
 function BombSlide({ left, btbSecs, slide, showAns }) {
   const urgent = left <= 10
   const chain = slide?.btbChain || ''
+  // Read btbMode — set by Generate page, defaults to 'chain'
+  const btbMode = window.__dmr_btbMode || 'chain'
 
   return (
     <div style={{ width:'100%', maxWidth:1100, flex:1, display:'flex', flexDirection:'column' }}>
@@ -786,23 +788,45 @@ function BombSlide({ left, btbSecs, slide, showAns }) {
         {left<=0?'💥 TIME\'S UP!':left}
       </div>
 
-      {/* Chain challenge */}
-      {chain && (
-        <div style={{ background:'rgba(167,139,250,.12)', border:'2px solid rgba(167,139,250,.4)', borderRadius:16, padding:'16px 24px', marginBottom:12, textAlign:'center', flexShrink:0 }}>
-          <div style={{ color:'#a78bfa', fontSize:11, fontWeight:700, letterSpacing:'.16em', textTransform:'uppercase', marginBottom:8 }}>⛓ CHAIN CHALLENGE</div>
-          <div style={{ color:'#e0e7ff', fontFamily:"'JetBrains Mono', monospace", fontSize:'clamp(14px,2vw,24px)', lineHeight:1.8, whiteSpace:'pre-wrap' }}>{chain}</div>
-        </div>
-      )}
-
-      {slide && (
+      {btbMode === 'chain' ? (
+        /* ── CHAIN MODE: sequential operations ── */
+        <>
+          {chain && (
+            <div style={{ background:'rgba(167,139,250,.12)', border:'2px solid rgba(167,139,250,.4)', borderRadius:16, padding:'16px 24px', marginBottom:12, textAlign:'center', flexShrink:0 }}>
+              <div style={{ color:'#a78bfa', fontSize:11, fontWeight:700, letterSpacing:'.16em', textTransform:'uppercase', marginBottom:8 }}>⛓ CHAIN CHALLENGE</div>
+              <div style={{ color:'#e0e7ff', fontFamily:"'JetBrains Mono', monospace", fontSize:'clamp(14px,2vw,26px)', lineHeight:1.8, whiteSpace:'pre-wrap' }}>{chain}</div>
+            </div>
+          )}
+          {slide && (
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, flex:1, minHeight:0 }}>
+              {[
+                {l:'⚡ Standard',q:slide.btbEasy,c:'#059669',bg:'rgba(5,150,105,.08)',b:'rgba(5,150,105,.4)'},
+                {l:'💀 Elite',q:slide.btbHard,c:'#dc2626',bg:'rgba(220,38,38,.08)',b:'rgba(220,38,38,.4)'}
+              ].map(s => (
+                <div key={s.l} style={{ background:s.bg, border:`2px solid ${s.b}`, borderRadius:16, padding:'18px 22px', display:'flex', flexDirection:'column', overflow:'hidden' }}>
+                  <div style={{ fontFamily:"'Syne', sans-serif", fontSize:11, fontWeight:700, letterSpacing:'.16em', textTransform:'uppercase', color:s.c, marginBottom:12 }}>{s.l}</div>
+                  <div style={{ color:'#e0e7ff', fontFamily:"'JetBrains Mono', monospace", fontSize:'clamp(13px,1.8vw,24px)', lineHeight:1.5, flex:1, whiteSpace:'pre-wrap' }}>{s.q}</div>
+                  {showAns && <div style={{ marginTop:10, paddingTop:8, borderTop:'1px solid rgba(255,255,255,.15)', fontSize:12, color:'rgba(224,231,255,.5)' }}>Discuss with class →</div>}
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      ) : (
+        /* ── CONTENT MODE: lesson-based questions ── */
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, flex:1, minHeight:0 }}>
           {[
-            {l:'⚡ Standard Challenge',q:slide.btbEasy,c:'#059669',bg:'rgba(5,150,105,.08)',b:'rgba(5,150,105,.4)'},
-            {l:'💀 Elite Challenge',q:slide.btbHard,c:'#dc2626',bg:'rgba(220,38,38,.08)',b:'rgba(220,38,38,.4)'}
+            {l:'⚡ Standard Challenge',q:slide?.btbEasy,c:'#059669',bg:'rgba(5,150,105,.08)',b:'rgba(5,150,105,.4)'},
+            {l:'💀 Elite Challenge',q:slide?.btbHard,c:'#dc2626',bg:'rgba(220,38,38,.08)',b:'rgba(220,38,38,.4)'}
           ].map(s => (
             <div key={s.l} style={{ background:s.bg, border:`2px solid ${s.b}`, borderRadius:16, padding:'18px 22px', display:'flex', flexDirection:'column', overflow:'hidden' }}>
-              <div style={{ fontFamily:"'Syne', sans-serif", fontSize:11, fontWeight:700, letterSpacing:'.16em', textTransform:'uppercase', color:s.c, marginBottom:12 }}>{s.l}</div>
-              <div style={{ color:'#e0e7ff', fontFamily:"'JetBrains Mono', monospace", fontSize:'clamp(13px,1.8vw,24px)', lineHeight:1.5, flex:1, whiteSpace:'pre-wrap' }}>{s.q}</div>
+              <div style={{ fontFamily:"'Syne', sans-serif", fontSize:11, fontWeight:700, letterSpacing:'.16em', textTransform:'uppercase', color:s.c, marginBottom:6 }}>{s.l}</div>
+              {slide?.skill?.skill_name && (
+                <div style={{ fontSize:12, color:'rgba(224,231,255,.5)', marginBottom:12, fontStyle:'italic' }}>{slide.skill.skill_name}</div>
+              )}
+              <div style={{ color:'#e0e7ff', fontFamily:"'JetBrains Mono', monospace", fontSize:'clamp(14px,2vw,28px)', lineHeight:1.6, flex:1, whiteSpace:'pre-wrap' }}>
+                {s.q || <span style={{ color:'rgba(224,231,255,.3)', fontStyle:'italic', fontSize:'clamp(12px,1.5vw,18px)' }}>No content question set — add one in Question Bank → Skill settings</span>}
+              </div>
               {showAns && <div style={{ marginTop:10, paddingTop:8, borderTop:'1px solid rgba(255,255,255,.15)', fontSize:12, color:'rgba(224,231,255,.5)' }}>Discuss with class →</div>}
             </div>
           ))}

@@ -299,6 +299,7 @@ export default function Generate() {
   const [addTopicOpen, setAddTopicOpen] = useState(false)
   const [allSkills, setAllSkills] = useState([])
   const [skippedSlides, setSkippedSlides] = useState(new Set())
+  const [btbMode, setBtbMode] = useState('chain') // 'chain' | 'content'
   const [expModalOpen, setExpModalOpen] = useState(false)
   const [editingExpSlide, setEditingExpSlide] = useState(null) // {si, slide} for editing existing
   const qMap_ref = useRef({})
@@ -974,6 +975,71 @@ export default function Generate() {
           )
         })
       })()}
+      {/* Beat the Bomb preview card */}
+      {slides.length > 0 && (() => {
+        const bombSlide = [...slides].reverse().find(s => s.btbEasy || s.btbChain) || slides[slides.length - 1] || {}
+        const chain = bombSlide.btbChain || ''
+        const easy = bombSlide.btbEasy || ''
+        const hard = bombSlide.btbHard || ''
+        const skillName = bombSlide.skill?.skill_name || ''
+        return (
+          <div className="card card-pad" style={{ background:'linear-gradient(135deg,rgba(240,74,107,.05),rgba(160,74,240,.05))', border:'1px solid rgba(240,74,107,.2)', marginBottom:16 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:14, flexWrap:'wrap' }}>
+              <div style={{ fontFamily:'var(--font-display)', fontSize:13, fontWeight:700, letterSpacing:'.12em', textTransform:'uppercase', color:'var(--red)' }}>
+                💣 Beat the Bomb — {btbSecs}s
+              </div>
+              <div style={{ flex:1 }} />
+              {/* Mode toggle */}
+              <div style={{ display:'flex', gap:6 }}>
+                {[
+                  { key:'chain', label:'⛓ Chain Operations', desc:'Students apply sequential operations to a starting number' },
+                  { key:'content', label:'📚 Lesson Content', desc:'Questions based on the skill being reviewed' },
+                ].map(m => (
+                  <button key={m.key} onClick={() => setBtbMode(m.key)} title={m.desc}
+                    style={{ padding:'6px 14px', borderRadius:'var(--rs)', fontSize:11, fontWeight:600, cursor:'pointer',
+                      border:`1px solid ${btbMode===m.key?'var(--red)':'var(--b2)'}`,
+                      background: btbMode===m.key?'rgba(240,74,107,.15)':'transparent',
+                      color: btbMode===m.key?'var(--red)':'var(--tm)',
+                      transition:'all .15s' }}>
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {btbMode === 'chain' ? (
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+                <div style={{ background:'rgba(167,139,250,.07)', border:'1px solid rgba(167,139,250,.3)', borderRadius:'var(--rs)', padding:'10px 14px' }}>
+                  <div style={{ fontSize:9, fontWeight:700, textTransform:'uppercase', color:'var(--pur)', marginBottom:6, letterSpacing:'.1em' }}>⛓ Chain Challenge</div>
+                  <div style={{ fontFamily:'var(--font-mono)', fontSize:12, lineHeight:1.7, color:'var(--tx)', whiteSpace:'pre-wrap' }}>{chain || <span style={{ color:'var(--tm)', fontStyle:'italic' }}>Chain will auto-populate from btbChains library</span>}</div>
+                </div>
+                <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                  <div style={{ background:'rgba(74,240,160,.05)', border:'1px solid rgba(74,240,160,.3)', borderRadius:'var(--rs)', padding:'8px 12px' }}>
+                    <div style={{ fontSize:9, fontWeight:700, textTransform:'uppercase', color:'var(--grn)', marginBottom:4 }}>⚡ Standard</div>
+                    <div style={{ fontFamily:'var(--font-mono)', fontSize:11, lineHeight:1.5 }}>{easy || <span style={{ color:'var(--tm)', fontStyle:'italic' }}>Set in Question Bank → Skill → BtB Easy</span>}</div>
+                  </div>
+                  <div style={{ background:'rgba(240,74,107,.05)', border:'1px solid rgba(240,74,107,.3)', borderRadius:'var(--rs)', padding:'8px 12px' }}>
+                    <div style={{ fontSize:9, fontWeight:700, textTransform:'uppercase', color:'var(--red)', marginBottom:4 }}>💀 Elite</div>
+                    <div style={{ fontFamily:'var(--font-mono)', fontSize:11, lineHeight:1.5 }}>{hard || <span style={{ color:'var(--tm)', fontStyle:'italic' }}>Set in Question Bank → Skill → BtB Hard</span>}</div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+                <div style={{ background:'rgba(74,240,160,.05)', border:'1px solid rgba(74,240,160,.3)', borderRadius:'var(--rs)', padding:'10px 14px' }}>
+                  <div style={{ fontSize:9, fontWeight:700, textTransform:'uppercase', color:'var(--grn)', marginBottom:6 }}>⚡ Standard — {skillName}</div>
+                  <div style={{ fontFamily:'var(--font-mono)', fontSize:12, lineHeight:1.5 }}>{easy || <span style={{ color:'var(--tm)', fontStyle:'italic' }}>Set in Question Bank → Skill → BtB Easy</span>}</div>
+                </div>
+                <div style={{ background:'rgba(240,74,107,.05)', border:'1px solid rgba(240,74,107,.3)', borderRadius:'var(--rs)', padding:'10px 14px' }}>
+                  <div style={{ fontSize:9, fontWeight:700, textTransform:'uppercase', color:'var(--red)', marginBottom:6 }}>💀 Elite — {skillName}</div>
+                  <div style={{ fontFamily:'var(--font-mono)', fontSize:12, lineHeight:1.5 }}>{hard || <span style={{ color:'var(--tm)', fontStyle:'italic' }}>Set in Question Bank → Skill → BtB Hard</span>}</div>
+                </div>
+              </div>
+            )}
+          </div>
+        )
+      })()}
+
       {slides.length === 0 && !loading && (
         <div className="empty-state">
           <div className="icon">⚡</div>
