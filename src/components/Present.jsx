@@ -368,6 +368,8 @@ export default function Present() {
         <ReviewTimerBar elapsed={reviewElapsed} totalSecs={600} />
       </div>
 
+      </div>
+
       {/* Keyboard shortcuts overlay */}
       {showShortcuts && (
         <div onClick={() => setShowShortcuts(false)} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.7)', zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center' }}>
@@ -392,7 +394,6 @@ export default function Present() {
         </div>
       )}
     </div>
-  </div>
   )
 }
 
