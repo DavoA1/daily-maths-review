@@ -302,10 +302,15 @@ export default function Generate() {
   const [summary, setSummary] = useState(null)
   const [toast, setToast] = useState('')
 
-  useEffect(() => { loadClasses() }, [user])
+  useEffect(() => { loadClasses(); loadAllSkills() }, [user])
   useEffect(() => { if (activeClass) loadClassData(activeClass) }, [activeClass])
 
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 2500) }
+
+  async function loadAllSkills() {
+    const { data } = await supabase.from('skills').select('*').order('year_level,strand,topic,skill_name').range(0, 9999)
+    setAllSkills(data || [])
+  }
 
   async function loadClasses() {
     const { data } = await supabase.from('classes').select('*').eq('teacher_id', user.id).order('name')
@@ -758,6 +763,12 @@ export default function Generate() {
         const groups = []
         let curGroup = null
         slides.forEach((slide, si) => {
+          // Explanation slides always get their own group
+          if (slide.isExplanation) {
+            if (curGroup) { groups.push(curGroup); curGroup = null }
+            groups.push({ skillKey: slide.id, slides: [{ slide, si }], isFoundational: false, isExplanation: true })
+            return
+          }
           const skillKey = slide.skill?.skill_name || slide.id
           if (!curGroup || curGroup.skillKey !== skillKey || slide.isBank || slide.isFoundational) {
             if (curGroup) groups.push(curGroup)
@@ -778,6 +789,7 @@ export default function Generate() {
           const spotCount = group.slides.filter(s => s.slide.isSpotlight).length
           const hasBank = group.slides.some(s => s.slide.isBank)
           const isFoundational = group.isFoundational
+          const isExplanationGroup = group.isExplanation
 
           return (
             <div key={gi} style={{ marginBottom: 20 }}>
