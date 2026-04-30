@@ -36,10 +36,10 @@ const THEMES = {
 }
 
 const FONT_SIZES = {
-  small:  { base: '13px', question: '14px', heading: '22px', present: '16px' },
-  medium: { base: '14px', question: '16px', heading: '26px', present: '20px' },
-  large:  { base: '15px', question: '19px', heading: '30px', present: '24px' },
-  xl:     { base: '16px', question: '22px', heading: '34px', present: '28px' },
+  small:  { base: '13px', question: '16px', heading: '22px', present: '24px' },
+  medium: { base: '14px', question: '18px', heading: '26px', present: '28px' },
+  large:  { base: '15px', question: '20px', heading: '30px', present: '32px' },
+  xl:     { base: '16px', question: '22px', heading: '34px', present: '36px' },
 }
 
 const FONTS = {
@@ -50,7 +50,7 @@ const FONTS = {
 
 const SettingsContext = createContext(null)
 
-const DEFAULT = { theme: 'dark', fontSize: 'medium', font: 'default', accentOverride: null }
+const DEFAULT = { theme: 'dark', fontSize: 'large', font: 'default', accentOverride: null }
 
 export function SettingsProvider({ children }) {
   const [settings, setSettings] = useState(() => {
