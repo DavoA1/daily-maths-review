@@ -114,10 +114,10 @@ function SVTiered({ data }) {
   const t34Qs = tieredRows.filter(r=>r.tier>=3).flatMap(r=>r.qs)
   const maxShort = t12Qs.length ? Math.max(...t12Qs.map(q=>(q.question_text||q.q||'').length)) : 20
   const maxLong  = t34Qs.length ? Math.max(...t34Qs.map(q=>(q.question_text||q.q||'').length)) : 40
-  const fontSm = maxShort > 120 ? 24 : 28
-  const fontLg = maxLong > 120 ? 24 : 28
-  const ansSm = 20
-  const ansLg = 20
+  const fontSm = 'var(--fs-present, 28px)'
+  const fontLg = 'var(--fs-present, 28px)'
+  const ansSm = 'calc(var(--fs-present, 28px) - 6px)'
+  const ansLg = 'calc(var(--fs-present, 28px) - 6px)' 
 
   return (
     <div style={{ width:'100%', maxWidth:1400, flex:1, minHeight:0, overflow:'hidden',
@@ -187,7 +187,7 @@ function SVTiered({ data }) {
                       }} />}
                       <div style={{
                         color:'#1e293b', fontFamily:"'JetBrains Mono',monospace",
-                        fontSize:`${font}px`, lineHeight:1.5,
+                        fontSize:font, lineHeight:1.5,
                         whiteSpace:'pre-wrap', wordBreak:'break-word',
                         fontWeight: t===4?600:400, textAlign:'center',
                         flex:1, display:'flex', alignItems:'center', justifyContent:'center',
@@ -198,7 +198,7 @@ function SVTiered({ data }) {
                       {data.showAns && (
                         <div style={{
                           color:'#166534', fontFamily:"'JetBrains Mono',monospace",
-                          fontSize:`${ansFont}px`, borderTop:`1px solid ${TIER_BORDER[t]}`,
+                          fontSize:ansFont, borderTop:`1px solid ${TIER_BORDER[t]}`,
                           paddingTop:4, marginTop:4, fontWeight:600,
                           width:'100%', textAlign:'center',
                         }}>

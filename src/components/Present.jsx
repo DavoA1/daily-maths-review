@@ -411,12 +411,12 @@ function TieredSlide({ slide, showAns }) {
   const t34Qs = tieredRows.filter(r=>r.tier>=3).flatMap(r=>r.qs)
   const maxShort = t12Qs.length ? Math.max(...t12Qs.map(q=>(q.question_text||q.q||'').length)) : 20
   const maxLong  = t34Qs.length ? Math.max(...t34Qs.map(q=>(q.question_text||q.q||'').length)) : 40
-  // Font sizes — minimum 24px guaranteed
-  // T1/T2 use same font as T3/T4 since cells are now larger
-  const fontSm = maxShort > 120 ? 24 : 28
-  const fontLg = maxLong > 120 ? 24 : 28
-  const ansSm = 20
-  const ansLg = 20
+  // Use CSS variable set by Settings — var(--fs-present)
+  // Falls back to 28px. This is controlled by Settings → Font Size
+  const fontSm = 'var(--fs-present, 28px)'
+  const fontLg = 'var(--fs-present, 28px)'
+  const ansSm = 'calc(var(--fs-present, 28px) - 6px)'
+  const ansLg = 'calc(var(--fs-present, 28px) - 6px)' 
 
   return (
     <div style={{ width:'100%', maxWidth:1400, display:'flex', flexDirection:'column', flex:1, minHeight:0, overflow:'hidden' }}>
@@ -498,7 +498,7 @@ function TieredSlide({ slide, showAns }) {
                       <div style={{
                         color:'#0f172a',
                         fontFamily:"'JetBrains Mono',monospace",
-                        fontSize:`${font}px`, lineHeight:1.4,
+                        fontSize:font, lineHeight:1.4,
                         whiteSpace:'pre-wrap', wordBreak:'break-word',
                         fontWeight: t===4 ? 600 : 400,
                         textAlign:'center',
@@ -511,7 +511,7 @@ function TieredSlide({ slide, showAns }) {
                       {showAns && (
                         <div style={{
                           color:'#166534', fontFamily:"'JetBrains Mono',monospace",
-                          fontSize:`${ansFont}px`, fontWeight:600,
+                          fontSize:ansFont, fontWeight:600,
                           borderTop:`1px solid ${TIER_BORDER[t]}`,
                           paddingTop:3, marginTop:3, width:'100%', textAlign:'center',
                         }}>
