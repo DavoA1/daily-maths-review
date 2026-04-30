@@ -48,9 +48,71 @@ const FONTS = {
   serif: { body: "'Georgia', serif", mono: "'Courier New', monospace", display: "'Georgia', serif" },
 }
 
+// ── ACCESSIBILITY PROFILES ───────────────────────────────────
+// Based on research-supported recommendations for dyslexia and visual stress
+export const ACCESSIBILITY_PROFILES = {
+  none: {
+    name: 'None',
+    desc: 'Standard display',
+    icon: '',
+  },
+  dyslexia: {
+    name: 'Dyslexia',
+    desc: 'Warm peach background · wider spacing · larger text · no italics',
+    icon: '📖',
+    // Research: warm backgrounds + wider spacing improve reading performance
+    // (Rello & Baeza-Yates, 2017 eye-tracking study with 341 participants)
+    cardBg: '#fdf0e6',         // warm peach
+    cardText: '#2d1a0e',       // dark brown (not stark black — reduces contrast glare)
+    cardBorder: '#e8c9a8',
+    answerText: '#4a2c0a',
+    font: 'Arial, Calibri, sans-serif',
+    letterSpacing: '0.08em',
+    lineHeight: '2.0',
+    fontSize: 'xl',            // larger floor
+    noItalics: true,
+    wordSpacing: '0.16em',
+  },
+  visual_stress: {
+    name: 'Visual Stress',
+    desc: 'Soft turquoise background · reduced contrast · clear cell borders',
+    icon: '👁',
+    // Research: turquoise background achieved shortest reading duration for
+    // dyslexic readers (Jakovljević et al., 2021, EEG + eye-tracking study)
+    cardBg: '#e6f5f5',         // soft turquoise
+    cardText: '#1a3d3d',       // dark teal (gentler than black)
+    cardBorder: '#7ab8b8',     // visible border to separate items
+    answerText: '#0d5c5c',
+    font: 'Arial, sans-serif',
+    letterSpacing: '0.06em',
+    lineHeight: '1.9',
+    fontSize: 'xl',
+    noItalics: true,
+    wordSpacing: '0.12em',
+  },
+  dysgraphia: {
+    name: 'Dysgraphia',
+    desc: 'Larger text · generous spacing · fewer items displayed at once',
+    icon: '✏️',
+    // Dysgraphia affects writing, not reading — display adjustments focus on
+    // reducing visual clutter and increasing text size for easier reading
+    cardBg: '#f8f9ff',         // very light blue-white (neutral, clean)
+    cardText: '#1e1b4b',       // dark indigo
+    cardBorder: '#c7d2fe',
+    answerText: '#166534',
+    font: 'Arial, sans-serif',
+    letterSpacing: '0.05em',
+    lineHeight: '1.9',
+    fontSize: 'xl',
+    noItalics: false,
+    wordSpacing: '0.1em',
+    maxQsPerCell: 4,           // limit T1/T2 to 4 per tier (2×2 grid) for less clutter
+  },
+}
+
 const SettingsContext = createContext(null)
 
-const DEFAULT = { theme: 'dark', fontSize: 'large', font: 'default', accentOverride: null }
+const DEFAULT = { theme: 'dark', fontSize: 'large', font: 'default', accentOverride: null, accessibilityProfile: 'none' }
 
 export function SettingsProvider({ children }) {
   const [settings, setSettings] = useState(() => {
@@ -90,12 +152,25 @@ export function SettingsProvider({ children }) {
     root.style.setProperty('--font-body', f.body)
     root.style.setProperty('--font-mono', f.mono)
     root.style.setProperty('--font-display', f.display)
+
+    // Accessibility profile overrides
+    const profile = ACCESSIBILITY_PROFILES[s.accessibilityProfile] || ACCESSIBILITY_PROFILES.none
+    root.style.setProperty('--a11y-card-bg', profile.cardBg || '')
+    root.style.setProperty('--a11y-card-text', profile.cardText || '')
+    root.style.setProperty('--a11y-card-border', profile.cardBorder || '')
+    root.style.setProperty('--a11y-answer-text', profile.answerText || '')
+    root.style.setProperty('--a11y-letter-spacing', profile.letterSpacing || 'normal')
+    root.style.setProperty('--a11y-line-height', profile.lineHeight || '1.4')
+    root.style.setProperty('--a11y-word-spacing', profile.wordSpacing || 'normal')
+    root.style.setProperty('--a11y-font', profile.font || '')
+    // Store profile name on root for CSS selectors
+    root.setAttribute('data-a11y', s.accessibilityProfile || 'none')
   }
 
   useEffect(() => { applyTheme(settings) }, [])
 
   return (
-    <SettingsContext.Provider value={{ settings, setSettings, THEMES, FONT_SIZES, FONTS }}>
+    <SettingsContext.Provider value={{ settings, setSettings, THEMES, FONT_SIZES, FONTS, ACCESSIBILITY_PROFILES }}>
       {children}
     </SettingsContext.Provider>
   )
