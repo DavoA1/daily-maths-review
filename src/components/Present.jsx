@@ -604,58 +604,60 @@ function SingleQSlide({ slide, q, showAns, modeConfig }) {
 
 // ── EXPLANATION SLIDE ───────────────────────────────────────
 function ExplanationSlide({ slide }) {
-  const yt = slide.expVideo
-    ? slide.expVideo.replace('watch?v=','embed/').replace('youtu.be/','youtube.com/embed/')
-    : ''
-  const hasMedia = slide.expImage || yt
+  // Debug: log what we received
+  console.log('[ExplanationSlide] slide keys:', Object.keys(slide || {}))
+  console.log('[ExplanationSlide] expTitle:', slide?.expTitle)
+  console.log('[ExplanationSlide] expText:', slide?.expText)
+  console.log('[ExplanationSlide] expImage length:', slide?.expImage?.length)
+
+  const title = slide?.expTitle || ''
+  const text  = slide?.expText  || ''
+  const image = slide?.expImage || ''
+  const video = slide?.expVideo || ''
+  const yt = video.replace('watch?v=','embed/').replace('youtu.be/','youtube.com/embed/')
+  const hasMedia = image || yt
 
   return (
-    <div style={{ width:'100%', maxWidth:1100, display:'flex', flexDirection:'column', flex:1, minHeight:0, gap:0 }}>
+    <div style={{ width:'100%', maxWidth:1100, display:'flex', flexDirection:'column', flex:1, minHeight:0 }}>
 
       {/* Title banner */}
-      <div style={{ background:'rgba(160,74,240,.18)', border:'1px solid rgba(160,74,240,.35)',
-        borderRadius:12, padding:'14px 28px', marginBottom:14, textAlign:'center', flexShrink:0 }}>
+      <div style={{ background:'rgba(160,74,240,.2)', border:'2px solid rgba(160,74,240,.4)',
+        borderRadius:12, padding:'16px 28px', marginBottom:12, textAlign:'center', flexShrink:0 }}>
         <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800,
-          fontSize:'clamp(20px,2.8vw,38px)', color:'#e0e7ff', lineHeight:1.2 }}>
-          {slide.expTitle || 'Explanation'}
+          fontSize:'clamp(20px,2.8vw,40px)', color:'#e0e7ff' }}>
+          {title || 'Explanation'}
         </div>
       </div>
 
-      {/* Content area — white card fills remaining space */}
+      {/* Content card — always renders, unconditionally */}
       <div style={{ flex:1, minHeight:0, background:'rgba(255,255,255,.97)', borderRadius:12,
-        padding:'20px 28px', display:'flex', gap:24,
-        boxShadow:'0 4px 24px rgba(0,0,0,.25)', overflow:'auto',
+        padding:'24px 32px', overflow:'auto', boxShadow:'0 4px 24px rgba(0,0,0,.3)',
+        display:'flex', gap:28,
         flexDirection: hasMedia ? 'row' : 'column',
         alignItems: hasMedia ? 'flex-start' : 'center',
-        justifyContent: hasMedia ? 'flex-start' : 'center' }}>
+        justifyContent: (text || image || yt) ? 'flex-start' : 'center' }}>
 
-        {/* Text */}
-        {slide.expText && (
-          <div style={{ flex:1, color:'#1e293b', fontFamily:"'Figtree',sans-serif",
-            fontSize:'clamp(16px,2vw,26px)', lineHeight:1.75,
-            whiteSpace:'pre-wrap', textAlign: hasMedia ? 'left' : 'center' }}>
-            {slide.expText}
+        {/* Always show text area */}
+        <div style={{ flex:1, color:'#1e293b', fontFamily:"'Figtree',sans-serif",
+          fontSize:'clamp(17px,2.2vw,28px)', lineHeight:1.8,
+          whiteSpace:'pre-wrap', wordBreak:'break-word',
+          textAlign: hasMedia ? 'left' : 'center' }}>
+          {text || <span style={{ color:'#94a3b8', fontStyle:'italic' }}>No text added.</span>}
+        </div>
+
+        {/* Image */}
+        {image && !yt && (
+          <div style={{ flexShrink:0, maxWidth:'45%', alignSelf:'center' }}>
+            <img src={image} alt="" style={{ width:'100%', maxHeight:360,
+              objectFit:'contain', borderRadius:8 }} />
           </div>
         )}
 
-        {/* Media — image or video */}
-        {slide.expImage && !yt && (
-          <div style={{ flexShrink:0, maxWidth:'45%' }}>
-            <img src={slide.expImage} alt="" style={{ width:'100%', maxHeight:340,
-              objectFit:'contain', borderRadius:8, display:'block' }} />
-          </div>
-        )}
+        {/* Video */}
         {yt && (
-          <div style={{ flexShrink:0, width:'45%' }}>
-            <iframe src={yt} style={{ width:'100%', aspectRatio:'16/9', borderRadius:8,
-              border:'none', display:'block' }} allowFullScreen title="Video" />
-          </div>
-        )}
-
-        {/* No content fallback */}
-        {!slide.expText && !slide.expImage && !yt && (
-          <div style={{ color:'#94a3b8', fontSize:16, fontStyle:'italic' }}>
-            No content added yet.
+          <div style={{ flexShrink:0, width:'45%', alignSelf:'flex-start' }}>
+            <iframe src={yt} style={{ width:'100%', aspectRatio:'16/9',
+              borderRadius:8, border:'none' }} allowFullScreen title="Video" />
           </div>
         )}
       </div>

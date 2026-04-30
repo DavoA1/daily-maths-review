@@ -267,45 +267,41 @@ function SVSingleQ({ data }) {
 
 // ── EXPLANATION STUDENT VIEW ──
 function SVExplanation({ data }) {
-  const yt = (data.expVideo||'').replace('watch?v=','embed/').replace('youtu.be/','youtube.com/embed/')
-  const hasMedia = data.expImage || yt
+  const text  = data?.expText  || ''
+  const image = data?.expImage || ''
+  const video = data?.expVideo || ''
+  const yt = video.replace('watch?v=','embed/').replace('youtu.be/','youtube.com/embed/')
+  const hasMedia = image || yt
   return (
     <div style={{ width:'100%', maxWidth:1100, display:'flex', flexDirection:'column', flex:1, minHeight:0 }}>
-      {/* Title */}
       <div style={{ background:'#f5f0ff', border:'1px solid #d8b4fe', borderRadius:12,
-        padding:'14px 28px', marginBottom:14, textAlign:'center', flexShrink:0 }}>
+        padding:'14px 28px', marginBottom:12, textAlign:'center', flexShrink:0 }}>
         <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800,
-          fontSize:'clamp(20px,2.8vw,38px)', color:'#1e1b4b', lineHeight:1.2 }}>
-          {data.expTitle || 'Explanation'}
+          fontSize:'clamp(20px,2.8vw,38px)', color:'#1e1b4b' }}>
+          {data?.expTitle || 'Explanation'}
         </div>
       </div>
-      {/* Content */}
       <div style={{ flex:1, minHeight:0, background:'white', borderRadius:12,
-        padding:'20px 28px', display:'flex', gap:24,
-        border:'1px solid #e2e8f0', boxShadow:'0 2px 12px rgba(0,0,0,.06)',
-        overflow:'auto',
+        padding:'24px 32px', display:'flex', gap:28,
+        border:'1px solid #e2e8f0', boxShadow:'0 2px 12px rgba(0,0,0,.06)', overflow:'auto',
         flexDirection: hasMedia ? 'row' : 'column',
         alignItems: hasMedia ? 'flex-start' : 'center',
-        justifyContent: hasMedia ? 'flex-start' : 'center' }}>
-        {data.expText && (
-          <div style={{ flex:1, color:'#1e293b', fontFamily:"'Figtree',sans-serif",
-            fontSize:'clamp(16px,2vw,26px)', lineHeight:1.75,
-            whiteSpace:'pre-wrap', textAlign: hasMedia ? 'left' : 'center' }}>
-            {data.expText}
-          </div>
-        )}
-        {data.expImage && !yt && (
-          <div style={{ flexShrink:0, maxWidth:'45%' }}>
-            <img src={data.expImage} alt="" style={{ width:'100%', maxHeight:340, objectFit:'contain', borderRadius:8 }} />
+        justifyContent: 'flex-start' }}>
+        <div style={{ flex:1, color:'#1e293b', fontFamily:"'Figtree',sans-serif",
+          fontSize:'clamp(17px,2.2vw,28px)', lineHeight:1.8,
+          whiteSpace:'pre-wrap', wordBreak:'break-word',
+          textAlign: hasMedia ? 'left' : 'center' }}>
+          {text || <span style={{ color:'#94a3b8', fontStyle:'italic' }}>No text added.</span>}
+        </div>
+        {image && !yt && (
+          <div style={{ flexShrink:0, maxWidth:'45%', alignSelf:'center' }}>
+            <img src={image} alt="" style={{ width:'100%', maxHeight:360, objectFit:'contain', borderRadius:8 }} />
           </div>
         )}
         {yt && (
           <div style={{ flexShrink:0, width:'45%' }}>
             <iframe src={yt} style={{ width:'100%', aspectRatio:'16/9', borderRadius:8, border:'none' }} allowFullScreen title="Video" />
           </div>
-        )}
-        {!data.expText && !data.expImage && !yt && (
-          <div style={{ color:'#94a3b8', fontSize:16, fontStyle:'italic' }}>No content added.</div>
         )}
       </div>
     </div>
