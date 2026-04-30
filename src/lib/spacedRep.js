@@ -80,3 +80,18 @@ export function getRetrievalGaps(classSkills) {
     return days > 14 && days <= 60 && score >= 4
   }).slice(0, 3)
 }
+
+// ── Legacy helpers used by Dashboard ──────────────────────
+export function isDue(classSkill) {
+  return getInclusionTier(classSkill) !== null
+}
+
+export function getDueDate(classSkill) {
+  if (classSkill.scheduled_date) return new Date(classSkill.scheduled_date)
+  if (classSkill.last_reviewed) {
+    const d = new Date(classSkill.last_reviewed)
+    d.setDate(d.getDate() + 3)
+    return d
+  }
+  return new Date()
+}
