@@ -99,111 +99,94 @@ function SVTiered({ data }) {
       .sort((a,b) => (a.question_text||a.q||'').length - (b.question_text||b.q||'').length)
     if (!qs.length) return null
     const maxN = t <= 2 ? 6 : t === 3 ? 2 : 1
-    const count = snapCount(qs.length, maxN)
-    return { tier: t, qs: qs.slice(0, count) }
+    return { tier: t, qs: qs.slice(0, snapCount(qs.length, maxN)) }
   }).filter(Boolean)
 
   if (!tieredRows.length) return (
-    <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center',
-      color:'#94a3b8', fontSize:16, fontStyle:'italic' }}>
+    <div style={{ flex:1,display:'flex',alignItems:'center',justifyContent:'center',color:'#94a3b8',fontSize:16 }}>
       No questions yet.
     </div>
   )
 
-  const t12Qs = tieredRows.filter(r=>r.tier<=2).flatMap(r=>r.qs)
-  const t34Qs = tieredRows.filter(r=>r.tier>=3).flatMap(r=>r.qs)
-  const maxShort = t12Qs.length ? Math.max(...t12Qs.map(q=>(q.question_text||q.q||'').length)) : 20
-  const maxLong  = t34Qs.length ? Math.max(...t34Qs.map(q=>(q.question_text||q.q||'').length)) : 40
-  const fontSm = 'var(--fs-present, 28px)'
-  const fontLg = 'var(--fs-present, 28px)'
-  const ansSm = 'calc(var(--fs-present, 28px) - 6px)'
-  const ansLg = 'calc(var(--fs-present, 28px) - 6px)' 
+  function cellFont(qs, showingAns) {
+    const maxLen = Math.max(...qs.map(q=>(q.question_text||q.q||'').length))
+    const rows = qs.length / gridCols(qs.length)
+    const base = maxLen > 80 ? 14 : maxLen > 55 ? 16 : maxLen > 35 ? 18 : maxLen > 20 ? 20 : 22
+    const rowPenalty = rows > 1 ? 2 : 0
+    const ansPenalty = showingAns ? 3 : 0
+    return Math.max(12, base - rowPenalty - ansPenalty)
+  }
+  function ansFont(qFont) { return Math.max(11, qFont - 2) }
 
   return (
-    <div style={{ width:'100%', maxWidth:1400, flex:1, minHeight:0, overflow:'hidden',
-      display:'flex', flexDirection:'column' }}>
+    <div style={{ width:'100%', maxWidth:1400, flex:1, minHeight:0, overflow:'hidden', display:'flex', flexDirection:'column' }}>
 
-      {/* Skill header */}
-      <div style={{ textAlign:'center', marginBottom:6, flexShrink:0 }}>
-        <div style={{ color:'#1e1b4b', fontFamily:"'Syne',sans-serif", fontWeight:800,
-          fontSize:'clamp(18px,2.5vw,34px)' }}>{data.skill}</div>
-        <div style={{ color:'#64748b', fontSize:12, marginTop:2 }}>
-          {data.topic} · {data.strand} · {data.year==='F'?'Foundational':`Year ${data.year}`}
-        </div>
+      <div style={{ textAlign:'center', marginBottom:5, flexShrink:0 }}>
+        <div style={{ color:'#1e1b4b', fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'clamp(17px,2.3vw,32px)' }}>{data.skill}</div>
+        <div style={{ color:'#64748b', fontSize:12, marginTop:1 }}>{data.topic} · {data.strand} · {data.year==='F'?'Foundational':`Year ${data.year}`}</div>
       </div>
 
-      <div style={{ display:'flex', flexDirection:'column', gap:6, flex:1, minHeight:0, overflow:'hidden', alignContent:'stretch' }}>
+      <div style={{ display:'flex', flexDirection:'column', gap:5, flex:1, minHeight:0, overflow:'hidden', alignContent:'stretch' }}>
         {tieredRows.map(({ tier: t, qs }) => {
-          const isHigh = t >= 3
-          const font = isHigh ? fontLg : fontSm
-          const ansFont = isHigh ? ansLg : ansSm
-          const cols = gridCols(qs.length)
-          const rows = qs.length / cols
-          const flexW = t === 1 ? 1.5 : t === 2 ? 1.5 : t === 3 ? 1.35 : 1.65
+          const font  = cellFont(qs, data.showAns)
+          const aFont = ansFont(font)
+          const cols  = gridCols(qs.length)
+          const rows  = qs.length / cols
+          const flexW = t === 1 ? 1.6 : t === 2 ? 1.6 : t === 3 ? 1.5 : 1.3
 
           return (
-            <div key={t} style={{ display:'flex', gap:6, flex:flexW, minHeight:0, overflow:'hidden' }}>
-              {/* Tier label */}
+            <div key={t} style={{ display:'flex', gap:5, flex:flexW, minHeight:0, overflow:'hidden', alignItems:'stretch' }}>
               <div style={{
                 background:TIER_BG[t], border:`1.5px solid ${TIER_BORDER[t]}`,
-                color:TIER_COLS[t], padding:'5px 7px', borderRadius:8,
-                fontSize: t<=2 ? 9 : 11, fontWeight:800, letterSpacing:'.06em',
+                color:TIER_COLS[t], padding:'4px 6px', borderRadius:7,
+                fontSize:9, fontWeight:800, letterSpacing:'.05em',
                 writingMode:'vertical-rl', transform:'rotate(180deg)',
                 display:'flex', alignItems:'center', justifyContent:'center',
-                flexShrink:0, minWidth: t<=2 ? 26 : 32, textTransform:'uppercase',
-              }}>
-                {t === 4 ? '🏆' : `T${t}`}
-              </div>
+                flexShrink:0, minWidth:24, textTransform:'uppercase',
+              }}>{t===4?'🏆':`T${t}`}</div>
 
-              {/* Grid — cells stretch to fill all space */}
               <div style={{
                 display:'grid',
                 gridTemplateColumns:`repeat(${cols},1fr)`,
                 gridTemplateRows:`repeat(${rows},1fr)`,
-                gap:6, flex:1, minHeight:0, overflow:'hidden',
+                gap:5, flex:1, minHeight:0, overflow:'hidden',
                 alignItems:'stretch', alignContent:'stretch',
               }}>
-                {qs.map((q, qi) => {
-                  const qt = q.question_text || q.q || ''
-                  const at = q.answer_text || q.a || ''
-                  const img = q.image_url || ''
+                {qs.map((q,qi) => {
+                  const qt = q.question_text||q.q||''
+                  const at = q.answer_text||q.a||''
+                  const img = q.image_url||''
                   return (
                     <div key={qi} style={{
-                      background: t===4 ? 'linear-gradient(135deg,#fff,#fffbeb)' : 'white',
+                      background: t===4?'linear-gradient(135deg,#fff,#fffbeb)':'white',
                       border:`${t===4?2:1.5}px solid ${TIER_BORDER[t]}`,
-                      borderRadius:10, padding:'10px 14px',
+                      borderRadius:9, padding:'7px 10px',
                       display:'flex', flexDirection:'column',
                       alignItems:'center', justifyContent:'center',
                       overflow:'hidden', height:'100%', boxSizing:'border-box',
-                      textAlign:'center',
                     }}>
-                      <div style={{ color:TIER_COLS[t], fontSize:10, fontWeight:800,
-                        marginBottom:3, alignSelf:'flex-start' }}>
-                        {t===4 ? '🏆 CHALLENGE' : `${t}.${qi+1}`}
+                      <div style={{ color:TIER_COLS[t], fontSize:9, fontWeight:800, marginBottom:3, alignSelf:'flex-start', flexShrink:0 }}>
+                        {t===4?'🏆':`${t}.${qi+1}`}
                       </div>
-                      {img && <img src={img} alt="" style={{
-                        maxHeight: t>=3?90:60, maxWidth:'90%',
-                        objectFit:'contain', marginBottom:5, borderRadius:4
-                      }} />}
+                      {img && <img src={img} alt="" style={{ maxHeight:50, maxWidth:'90%', objectFit:'contain', marginBottom:4, borderRadius:3, flexShrink:0 }} />}
                       <div style={{
                         color:'#1e293b', fontFamily:"'JetBrains Mono',monospace",
-                        fontSize:font, lineHeight:1.5,
+                        fontSize:`${font}px`, lineHeight:1.4,
                         whiteSpace:'pre-wrap', wordBreak:'break-word',
-                        fontWeight: t===4?600:400, textAlign:'center',
-                        flex:1, display:'flex', alignItems:'center', justifyContent:'center',
-                        width:'100%',
-                      }}>
-                        {qt}
-                      </div>
+                        fontWeight:t===4?600:400, textAlign:'center',
+                        overflow:'hidden', flex:1,
+                        display:'flex', alignItems:'center', justifyContent:'center', width:'100%',
+                      }}>{qt}</div>
                       {data.showAns && (
                         <div style={{
                           color:'#166534', fontFamily:"'JetBrains Mono',monospace",
-                          fontSize:ansFont, borderTop:`1px solid ${TIER_BORDER[t]}`,
-                          paddingTop:4, marginTop:4, fontWeight:600,
+                          fontSize:`${aFont}px`, fontWeight:700, lineHeight:1.3,
+                          borderTop:`1px solid ${TIER_BORDER[t]}`,
+                          paddingTop:4, marginTop:3,
                           width:'100%', textAlign:'center',
-                        }}>
-                          → {at}
-                        </div>
+                          overflow:'hidden', flexShrink:0,
+                          whiteSpace:'pre-wrap', wordBreak:'break-word',
+                        }}>→ {at}</div>
                       )}
                     </div>
                   )

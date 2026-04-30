@@ -377,26 +377,21 @@ function ReviewTimerBar({ elapsed, totalSecs }) {
 }
 
 // ── TIERED SLIDE ──
-// T1: snap to 1,2,3,4,6 questions — 3×2 grid when 6, 2×2 when 4, etc.
-// T2: same
-// T3: 1 or 2 questions side-by-side
-// T4: 1 challenge question full width
+// T1: 6q max · T2: 6q max · T3: 2q max · T4: 1q
+// Font size auto-fits based on text length, tier row height, and whether answer is shown
 function TieredSlide({ slide, showAns }) {
   if (!slide) return null
   const sk = slide.skill || {}
 
-  // Sort and bucket by tier
   const byTier = {1:[],2:[],3:[],4:[]}
   ;(slide.questions || []).forEach(q => { if (byTier[q.tier]) byTier[q.tier].push(q) })
 
-  // Pick questions for each tier — snap to clean grid count
   const tieredRows = [1,2,3,4].map(t => {
     const qs = [...byTier[t]]
       .sort((a,b) => (a.question_text||a.q||'').length - (b.question_text||b.q||'').length)
     if (!qs.length) return null
     const maxN = t <= 2 ? 6 : t === 3 ? 2 : 1
-    const count = snapCount(qs.length, maxN)
-    return { tier: t, qs: qs.slice(0, count) }
+    return { tier: t, qs: qs.slice(0, snapCount(qs.length, maxN)) }
   }).filter(Boolean)
 
   if (!tieredRows.length) return (
@@ -406,62 +401,67 @@ function TieredSlide({ slide, showAns }) {
     </div>
   )
 
-  // Font sizes: T1/T2 smaller (more items), T3/T4 larger (fewer items, longer text)
-  const t12Qs = tieredRows.filter(r=>r.tier<=2).flatMap(r=>r.qs)
-  const t34Qs = tieredRows.filter(r=>r.tier>=3).flatMap(r=>r.qs)
-  const maxShort = t12Qs.length ? Math.max(...t12Qs.map(q=>(q.question_text||q.q||'').length)) : 20
-  const maxLong  = t34Qs.length ? Math.max(...t34Qs.map(q=>(q.question_text||q.q||'').length)) : 40
-  // Use CSS variable set by Settings — var(--fs-present)
-  // Falls back to 28px. This is controlled by Settings → Font Size
-  const fontSm = 'var(--fs-present, 28px)'
-  const fontLg = 'var(--fs-present, 28px)'
-  const ansSm = 'calc(var(--fs-present, 28px) - 6px)'
-  const ansLg = 'calc(var(--fs-present, 28px) - 6px)' 
+  // Font size: scales down with text length and number of rows in tier
+  // Also shrinks when answer is shown to fit both Q + A in the cell
+  function cellFont(qs, showingAns) {
+    const maxLen = Math.max(...qs.map(q => (q.question_text||q.q||'').length))
+    const rows = qs.length / gridCols(qs.length)  // how many rows of cells
+    // Longer text → smaller font; more rows → smaller font; answer shown → shrink further
+    const base = maxLen > 80 ? 13
+               : maxLen > 55 ? 15
+               : maxLen > 35 ? 17
+               : maxLen > 20 ? 18
+               : 20
+    const rowPenalty = rows > 1 ? 2 : 0
+    const ansPenalty = showingAns ? 3 : 0
+    return Math.max(11, base - rowPenalty - ansPenalty)
+  }
+
+  function ansFont(qFont) { return Math.max(10, qFont - 2) }
 
   return (
     <div style={{ width:'100%', maxWidth:1400, display:'flex', flexDirection:'column', flex:1, minHeight:0, overflow:'hidden' }}>
 
       {/* Skill header */}
-      <div style={{ textAlign:'center', marginBottom:6, flexShrink:0 }}>
+      <div style={{ textAlign:'center', marginBottom:5, flexShrink:0 }}>
         <div style={{ color:'#e0e7ff', fontFamily:"'Syne',sans-serif", fontWeight:800,
-          fontSize:'clamp(13px,1.6vw,21px)' }}>{sk.skill_name}</div>
-        <div style={{ color:'rgba(224,231,255,.45)', fontSize:10, marginTop:1 }}>
+          fontSize:'clamp(12px,1.5vw,20px)' }}>{sk.skill_name}</div>
+        <div style={{ color:'rgba(224,231,255,.4)', fontSize:10, marginTop:1 }}>
           {sk.topic} · {sk.strand} · {sk.year_level==='F'?'Foundational':`Year ${sk.year_level}`}
         </div>
       </div>
 
-      {/* Tier rows — stretch to fill all available space */}
-      <div style={{ display:'flex', flexDirection:'column', gap:5, flex:1, minHeight:0, overflow:'hidden', alignContent:'stretch' }}>
+      {/* Tier rows */}
+      <div style={{ display:'flex', flexDirection:'column', gap:4, flex:1, minHeight:0, overflow:'hidden', alignContent:'stretch' }}>
         {tieredRows.map(({ tier: t, qs }) => {
-          const isHigh = t >= 3
-          const font = isHigh ? fontLg : fontSm
-          const ansFont = isHigh ? ansLg : ansSm
-          const cols = gridCols(qs.length)
-          const rows = qs.length / cols
-          // T3/T4 get more vertical space since they have fewer, longer questions
-          const flexW = t === 1 ? 1.5 : t === 2 ? 1.5 : t === 3 ? 1.35 : 1.65
+          const font    = cellFont(qs, showAns)
+          const aFont   = ansFont(font)
+          const cols    = gridCols(qs.length)
+          const rows    = qs.length / cols
+          // T1/T2/T3 get more space; T4 reduced 15% from baseline
+          const flexW   = t === 1 ? 1.6 : t === 2 ? 1.6 : t === 3 ? 1.5 : 1.3
 
           return (
-            <div key={t} style={{ display:'flex', gap:5, flex:flexW, minHeight:0, overflow:'hidden', alignItems:'stretch' }}>
+            <div key={t} style={{ display:'flex', gap:4, flex:flexW, minHeight:0, overflow:'hidden', alignItems:'stretch' }}>
 
-              {/* Tier label pill — vertical */}
+              {/* Tier label */}
               <div style={{
                 background: TIER_BG[t], border:`1.5px solid ${TIER_BORDER[t]}`,
-                color: TIER_COLS[t], padding:'4px 5px', borderRadius:7,
-                fontSize: t <= 2 ? 8 : 10, fontWeight:800, letterSpacing:'.06em',
+                color: TIER_COLS[t], padding:'3px 5px', borderRadius:6,
+                fontSize:8, fontWeight:800, letterSpacing:'.05em',
                 writingMode:'vertical-rl', transform:'rotate(180deg)',
                 display:'flex', alignItems:'center', justifyContent:'center',
-                flexShrink:0, minWidth: t <= 2 ? 22 : 28, textTransform:'uppercase',
+                flexShrink:0, minWidth:20, textTransform:'uppercase',
               }}>
                 {t === 4 ? '🏆' : `T${t}`}
               </div>
 
-              {/* Question grid — cells stretch to fill all space */}
+              {/* Grid */}
               <div style={{
                 display:'grid',
                 gridTemplateColumns:`repeat(${cols}, 1fr)`,
                 gridTemplateRows:`repeat(${rows}, 1fr)`,
-                gap:5, flex:1, minHeight:0, overflow:'hidden',
+                gap:4, flex:1, minHeight:0, overflow:'hidden',
                 alignItems:'stretch', alignContent:'stretch',
               }}>
                 {qs.map((q, qi) => {
@@ -472,48 +472,56 @@ function TieredSlide({ slide, showAns }) {
 
                   return (
                     <div key={qi} style={{
-                      background: t === 4
+                      background: t===4
                         ? 'linear-gradient(135deg,rgba(255,255,255,.99),rgba(255,251,235,.98))'
                         : 'rgba(255,255,255,.97)',
-                      border: `${t===4?2:1.5}px solid ${TIER_BORDER[t]}`,
-                      borderRadius:8, padding:'8px 10px',
+                      border:`${t===4?2:1.5}px solid ${TIER_BORDER[t]}`,
+                      borderRadius:7, padding:'5px 8px',
                       display:'flex', flexDirection:'column',
                       alignItems:'center', justifyContent:'center',
                       overflow:'hidden', height:'100%', boxSizing:'border-box',
-                      textAlign:'center',
                     }}>
                       {/* Q label */}
-                      <div style={{ display:'flex', alignItems:'center', gap:4,
-                        color:TIER_COLS[t], fontSize:9, fontWeight:800,
-                        letterSpacing:'.04em', marginBottom:3, alignSelf:'flex-start' }}>
-                        {t === 4 ? '🏆 CHALLENGE' : `${t}.${qi+1}`}
-                        {isGen && <span style={{ fontSize:7, opacity:.5 }}>⚡</span>}
+                      <div style={{ color:TIER_COLS[t], fontSize:8, fontWeight:800,
+                        letterSpacing:'.04em', marginBottom:2, alignSelf:'flex-start',
+                        display:'flex', alignItems:'center', gap:3, flexShrink:0 }}>
+                        {t===4 ? '🏆' : `${t}.${qi+1}`}
+                        {isGen && <span style={{ fontSize:7, opacity:.4 }}>⚡</span>}
                       </div>
                       {/* Image */}
                       {img && <img src={img} alt="" style={{
-                        maxHeight: t>=3 ? 70 : 45, maxWidth:'90%',
-                        objectFit:'contain', marginBottom:4, borderRadius:3
+                        maxHeight:40, maxWidth:'90%', objectFit:'contain',
+                        marginBottom:3, borderRadius:3, flexShrink:0
                       }} />}
-                      {/* Question text — centered */}
+                      {/* Question text */}
                       <div style={{
                         color:'#0f172a',
                         fontFamily:"'JetBrains Mono',monospace",
-                        fontSize:font, lineHeight:1.4,
+                        fontSize:`${font}px`,
+                        lineHeight:1.35,
                         whiteSpace:'pre-wrap', wordBreak:'break-word',
                         fontWeight: t===4 ? 600 : 400,
                         textAlign:'center',
-                        flex:1, display:'flex', alignItems:'center', justifyContent:'center',
+                        overflow:'hidden',
+                        flex:1,
+                        display:'flex', alignItems:'center', justifyContent:'center',
                         width:'100%',
                       }}>
                         {qtext}
                       </div>
-                      {/* Answer */}
+                      {/* Answer — appears below, same cell */}
                       {showAns && (
                         <div style={{
-                          color:'#166534', fontFamily:"'JetBrains Mono',monospace",
-                          fontSize:ansFont, fontWeight:600,
+                          color:'#166534',
+                          fontFamily:"'JetBrains Mono',monospace",
+                          fontSize:`${aFont}px`,
+                          fontWeight:700,
+                          lineHeight:1.3,
                           borderTop:`1px solid ${TIER_BORDER[t]}`,
-                          paddingTop:3, marginTop:3, width:'100%', textAlign:'center',
+                          paddingTop:3, marginTop:3,
+                          width:'100%', textAlign:'center',
+                          overflow:'hidden', flexShrink:0,
+                          whiteSpace:'pre-wrap', wordBreak:'break-word',
                         }}>
                           → {atext}
                         </div>
