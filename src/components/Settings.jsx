@@ -1,4 +1,4 @@
-import { useSettings } from '../lib/settings.jsx'
+import { useSettings, ACCESSIBILITY_PROFILES } from '../lib/settings.jsx'
 import { useState } from 'react'
 import { seedAll } from '../lib/seed.js'
 import { useAuth } from '../lib/auth.jsx'
@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase.js'
 
 export default function Settings() {
   const { settings, setSettings, THEMES, FONT_SIZES, FONTS } = useSettings()
+  const profiles = ACCESSIBILITY_PROFILES
   const { user, profile } = useAuth()
   const [saved, setSaved] = useState(false)
   const [seeding, setSeeding] = useState(false)
@@ -217,6 +218,55 @@ export default function Settings() {
           <p style={{ fontSize:12, color:'var(--td)', lineHeight:1.6 }}>
             Students access homework at <strong style={{ color:'var(--acc)' }}>{window.location.origin}/homework</strong> using their class code shown on the Dashboard.
           </p>
+        </div>
+
+        {/* ── ACCESSIBILITY PROFILES ── */}
+        <div className="card card-pad" style={{ marginTop: 20 }}>
+          <div style={{ fontFamily:'var(--font-display)', fontWeight:700, fontSize:15, marginBottom:4 }}>
+            Accessibility
+          </div>
+          <p style={{ fontSize:12, color:'var(--td)', marginBottom:16, lineHeight:1.6 }}>
+            These profiles adjust text display in the <strong>Present</strong> and <strong>Student View</strong> screens to support students with dyslexia, visual stress, or dysgraphia. Based on peer-reviewed research into reading performance and visual processing.
+          </p>
+
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(200px,1fr))', gap:12 }}>
+            {Object.entries(profiles || {}).map(([key, profile]) => {
+              const active = (settings.accessibilityProfile || 'none') === key
+              return (
+                <button key={key} onClick={() => setSettings(s => ({ ...s, accessibilityProfile: key }))}
+                  style={{
+                    padding:'14px 16px', borderRadius:10, textAlign:'left', cursor:'pointer',
+                    border: active ? '2px solid var(--blu)' : '1px solid var(--b2)',
+                    background: active ? 'rgba(74,200,240,.1)' : 'var(--s2)',
+                    transition:'all .15s',
+                  }}>
+                  <div style={{ fontWeight:700, fontSize:13, marginBottom:4, color: active ? 'var(--blu)' : 'var(--tx)', display:'flex', alignItems:'center', gap:6 }}>
+                    {profile.icon && <span>{profile.icon}</span>}
+                    {key === 'none' ? 'Standard (No profile)' : profile.name}
+                    {active && <span style={{ fontSize:10, marginLeft:'auto', color:'var(--blu)' }}>✓ Active</span>}
+                  </div>
+                  <div style={{ fontSize:11, color:'var(--td)', lineHeight:1.5 }}>{profile.desc}</div>
+                  {key !== 'none' && (
+                    <div style={{ marginTop:10, display:'flex', gap:6, flexWrap:'wrap' }}>
+                      {profile.cardBg && (
+                        <div style={{ width:28, height:18, borderRadius:4, background:profile.cardBg, border:`2px solid ${profile.cardBorder||'#ccc'}`, flexShrink:0, title:'Card background' }} />
+                      )}
+                      <span style={{ fontSize:10, color:'var(--tm)', padding:'2px 6px', background:'var(--s3)', borderRadius:4 }}>
+                        {profile.fontSize === 'xl' ? 'XL font' : 'Large font'}
+                      </span>
+                      <span style={{ fontSize:10, color:'var(--tm)', padding:'2px 6px', background:'var(--s3)', borderRadius:4 }}>
+                        Wide spacing
+                      </span>
+                    </div>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+
+          <div style={{ marginTop:14, padding:'10px 14px', background:'rgba(74,200,240,.06)', border:'1px solid rgba(74,200,240,.2)', borderRadius:8, fontSize:11, color:'var(--td)', lineHeight:1.6 }}>
+            <strong>Note:</strong> These profiles affect the question cells in Present and Student View only — not the overall app theme. Evidence is mixed on which settings help which students most; these are starting points to trial with your class.
+          </div>
         </div>
 
         {saved && <div className="toast" style={{ position:'static', display:'block', textAlign:'center' }}>✓ Settings saved</div>}

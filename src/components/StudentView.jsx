@@ -160,8 +160,8 @@ function SVTiered({ data }) {
                   const img = q.image_url||''
                   return (
                     <div key={qi} style={{
-                      background: t===4?'linear-gradient(135deg,#fff,#fffbeb)':'white',
-                      border:`${t===4?2:1.5}px solid ${TIER_BORDER[t]}`,
+                      background: t===4?'linear-gradient(135deg,#fff,#fffbeb)':'var(--a11y-card-bg, white)',
+                      border:`${t===4?2:1.5}px solid var(--a11y-card-border, ${TIER_BORDER[t]})`,
                       borderRadius:9, padding:'7px 10px',
                       display:'flex', flexDirection:'column',
                       alignItems:'center', justifyContent:'center',
@@ -172,18 +172,22 @@ function SVTiered({ data }) {
                       </div>
                       {img && <img src={img} alt="" style={{ maxHeight:50, maxWidth:'90%', objectFit:'contain', marginBottom:4, borderRadius:3, flexShrink:0 }} />}
                       <div style={{
-                        color:'#1e293b', fontFamily:"'JetBrains Mono',monospace",
-                        fontSize:`${font}px`, lineHeight:1.4,
+                        color:'var(--a11y-card-text, #1e293b)', fontFamily:"var(--a11y-font, 'JetBrains Mono', monospace)",
+                        fontSize:`${font}px`, lineHeight:'var(--a11y-line-height, 1.4)',
+                        letterSpacing:'var(--a11y-letter-spacing, normal)',
+                        wordSpacing:'var(--a11y-word-spacing, normal)',
                         whiteSpace:'pre-wrap', wordBreak:'break-word',
+                        fontStyle:'normal',
                         fontWeight:t===4?600:400, textAlign:'center',
                         overflow:'hidden', flex:1,
                         display:'flex', alignItems:'center', justifyContent:'center', width:'100%',
                       }}>{qt}</div>
                       {data.showAns && (
                         <div style={{
-                          color:'#166534', fontFamily:"'JetBrains Mono',monospace",
-                          fontSize:`${aFont}px`, fontWeight:700, lineHeight:1.3,
-                          borderTop:`1px solid ${TIER_BORDER[t]}`,
+                          color:'var(--a11y-answer-text, #166534)', fontFamily:"var(--a11y-font, 'JetBrains Mono', monospace)",
+                          fontSize:`${aFont}px`, fontWeight:700, lineHeight:'var(--a11y-line-height, 1.3)',
+                          letterSpacing:'var(--a11y-letter-spacing, normal)',
+                          borderTop:`1px solid var(--a11y-card-border, ${TIER_BORDER[t]})`,
                           paddingTop:4, marginTop:3,
                           width:'100%', textAlign:'center',
                           overflow:'hidden', flexShrink:0,

@@ -7,6 +7,7 @@ import { FOUNDATIONAL } from '../lib/curriculum.js'
 import { useNavigate } from 'react-router-dom'
 import { getDailyChain } from '../lib/btbChains.js'
 import { getSlides, setStoredSlides, setTimerConfig, hasSlides } from '../lib/slideStore.js'
+import { openHomeworkPrint } from '../lib/homeworkPrint.js'
 
 
 // ─── INLINE QUESTION GENERATOR ───────────────────────────────
@@ -562,7 +563,7 @@ export default function Generate() {
           id: `${c.id}-ret`, skill: sk, classSkill: c, tag: '🧠 Retrieval',
           singleMode: false, isBank: true,
           questions: allQs,
-          btbEasy: sk.btb_easy || '', btbHard: sk.btb_hard || '', btbChain: sk.btb_chain || '',
+          btbEasy: sk.btb_easy || '', btbHard: sk.btb_hard || '', btbChain: sk.btb_chain || getDailyChain(sk.skill_name) || '',
         })
       })
 
@@ -581,7 +582,7 @@ export default function Generate() {
         const byTier = {1:[],2:[],3:[],4:[]}
         allQs.forEach(q => { if(byTier[q.tier]) byTier[q.tier].push(q) })
 
-        const base = { skill: sk, classSkill: c, tag, btbEasy: sk.btb_easy||'', btbHard: sk.btb_hard||'', btbChain: sk.btb_chain||'', isWC: lowStreak }
+        const base = { skill: sk, classSkill: c, tag, btbEasy: sk.btb_easy||'', btbHard: sk.btb_hard||'', btbChain: sk.btb_chain || getDailyChain(sk.skill_name) || '', isWC: lowStreak }
 
         console.log(`[Generate] ${ci+1}/${due.length}: ${sk.skill_name} [${inclusionTier}]`)
 
@@ -766,6 +767,9 @@ export default function Generate() {
               <button className="btn" onClick={() => navigate('/present', { state: { slides, timerSecs, btbSecs } })}
                 style={{ background: 'rgba(74,200,240,.14)', borderColor: 'var(--blu)', color: 'var(--blu)', fontFamily: 'var(--font-display)', fontWeight: 700 }}>
                 ▶ Present ({slides.length + 1} slides)
+              </button>
+              <button className="btn btn-secondary" onClick={() => openHomeworkPrint(slides, classes.find(c=>c.id===activeClass)?.name || '')} style={{ fontSize: 12 }}>
+                📄 Homework Sheet
               </button>
               <button className="btn btn-secondary" onClick={() => setAddTopicOpen(true)} style={{ fontSize: 12 }}>
                 + Add Topic

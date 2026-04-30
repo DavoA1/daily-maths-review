@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { getSlides, getTimerSecs, getBtbSecs } from '../lib/slideStore.js'
+import { openHomeworkPrint } from '../lib/homeworkPrint.js'
 import { supabase } from '../lib/supabase.js'
 import { useAuth } from '../lib/auth.jsx'
 
@@ -58,6 +59,14 @@ export default function Present() {
   // Read slides from the shared store (persists across navigation)
   const storedSlides = getSlides()
   const allSlides = (storedSlides.length > 0 ? storedSlides : state?.slides) || []
+
+  // Build a best BtB slide — use the slide with the richest BtB content
+  const bombSlide = React.useMemo(() => {
+    const candidates = allSlides.filter(s => s.btbEasy || s.btbHard || s.btbChain)
+    if (!candidates.length) return allSlides[allSlides.length - 1] || {}
+    // Prefer the last skill slide (most recently reviewed topic)
+    return candidates[candidates.length - 1]
+  }, [allSlides])
   const timerSecs = getTimerSecs() || state?.timerSecs || 20
   const btbSecs   = getBtbSecs()   || state?.btbSecs   || 90
 
@@ -74,6 +83,48 @@ export default function Present() {
   const [ratings, setRatings] = useState({})
   const [skipped, setSkipped] = useState(new Set())
   const [showShortcuts, setShowShortcuts] = useState(false)
+  const [accessMode, setAccessMode] = useState('standard')  // standard | dyslexia | visual_stress | dysgraphia
+
+  // Accessibility profiles — evidence-based settings
+  // Sources: BDA Style Guide 2023, Rello et al. (eye-tracking study), 
+  //          PMC8146078 (turquoise/yellow backgrounds), Forbrain.com
+  const ACCESS_PROFILES = {
+    standard: {
+      label: 'Standard', icon: '🎨',
+      cellBg: 'rgba(255,255,255,.97)', cellText: '#0f172a',
+      font: "'JetBrains Mono',monospace", letterSpacing: 'normal',
+      lineHeight: 1.4, textAlign: 'center', padding: '6px 9px',
+      ansColor: '#166534', slideBg: null, fontBoost: 0,
+    },
+    dyslexia: {
+      label: 'Dyslexia Friendly', icon: '📖',
+      // BDA 2023: Arial/Open Sans, cream bg, wider letter + word spacing, left-aligned
+      cellBg: '#fefce8', cellText: '#1a1a1a',
+      font: "Arial,'Open Sans',sans-serif", letterSpacing: '0.05em',
+      lineHeight: 1.8, textAlign: 'left', padding: '10px 14px',
+      ansColor: '#065f46', slideBg: 'rgba(254,252,232,.15)', fontBoost: 2,
+    },
+    visual_stress: {
+      label: 'Visual Stress', icon: '🫧',
+      // PMC8146078: turquoise background significantly reduces reading time for dyslexic readers
+      // Reduced contrast (not pure black on white) helps Meares-Irlen syndrome
+      cellBg: '#e0f2f1', cellText: '#1a2e2e',
+      font: "Arial,sans-serif", letterSpacing: '0.06em',
+      lineHeight: 1.9, textAlign: 'left', padding: '10px 14px',
+      ansColor: '#004d40', slideBg: 'rgba(224,242,241,.12)', fontBoost: 1,
+    },
+    dysgraphia: {
+      label: 'Dysgraphia', icon: '✏️',
+      // Larger text, extra line height, Comic Sans (letter forms less ambiguous b/d/p/q)
+      // Comic Sans actually performs well in dyslexia studies due to irregular letterforms
+      // Extra padding helps students trace/copy answers
+      cellBg: '#fafaf9', cellText: '#1a1a1a',
+      font: "'Comic Sans MS','Comic Sans','Chalkboard SE',cursive", letterSpacing: '0.04em',
+      lineHeight: 2.2, textAlign: 'left', padding: '14px 18px',
+      ansColor: '#1e40af', slideBg: 'rgba(250,250,249,.1)', fontBoost: 4,
+    },
+  }
+  const ap = ACCESS_PROFILES[accessMode] || ACCESS_PROFILES.standard
   const [reviewElapsed, setReviewElapsed] = useState(0)  // seconds since first slide
   const timerRef = useRef(null)
   const bombRef = useRef(null)
@@ -305,6 +356,11 @@ export default function Present() {
             { l:'📺 Student View', fn:openStudentView, col:'#34d399' },
             { l:'⛶ Full', fn:toggleFullscreen, col:'rgba(224,231,255,.5)' },
             { l:'⌨ Keys', fn:()=>setShowShortcuts(s=>!s), col:'rgba(224,231,255,.5)' },
+            { l:'📄 Homework', fn:()=>openHomeworkPrint(allSlides), col:'#f0e44a' },
+            { l:`${ACCESS_PROFILES[accessMode]?.icon} Access`, fn:()=>setAccessMode(m => {
+              const modes = ['standard','dyslexia','visual_stress','dysgraphia']
+              return modes[(modes.indexOf(m)+1)%modes.length]
+            }), col: accessMode !== 'standard' ? '#34d399' : 'rgba(224,231,255,.5)' },
             { l:'✕ Exit', fn:exitPresent, col:'#f87171' },
           ].map(b => (
             <button key={b.l} onClick={b.fn} disabled={b.dis}
@@ -314,6 +370,17 @@ export default function Present() {
           ))}
         </div>
       </div>
+
+      {/* Accessibility mode indicator */}
+      {accessMode !== 'standard' && (
+        <div style={{ background: accessMode==='dyslexia'?'rgba(254,252,232,.15)':accessMode==='visual_stress'?'rgba(224,242,241,.12)':'rgba(250,250,249,.1)', borderBottom:'1px solid rgba(255,255,255,.08)', padding:'4px 18px', display:'flex', alignItems:'center', gap:8, flexShrink:0 }}>
+          <span style={{ fontSize:12 }}>{ACCESS_PROFILES[accessMode]?.icon}</span>
+          <span style={{ fontSize:11, color:'rgba(224,231,255,.7)', fontWeight:600 }}>{ACCESS_PROFILES[accessMode]?.label} Mode</span>
+          <span style={{ fontSize:10, color:'rgba(224,231,255,.4)', marginLeft:4 }}>
+            {accessMode==='dyslexia'?'Arial · cream background · wider spacing (BDA 2023)':accessMode==='visual_stress'?'Turquoise background · reduced contrast (Meares-Irlen support)':'Comic Sans · large text · extra line height'}
+          </span>
+        </div>
+      )}
 
       {/* Sub-question progress for single mode */}
       {slideMode === 'single' && singleSeq.length > 1 && !isBomb && (
@@ -331,14 +398,14 @@ export default function Present() {
       )}
 
       {/* Main content */}
-      <div style={{ flex:1, overflow:'hidden', display:'flex', flexDirection:'column', padding:slideMode==='explanation'?'0':'12px 18px 6px', alignItems:'center', minHeight:0, position:'relative' }}>
+      <div style={{ flex:1, overflow:'hidden', display:'flex', flexDirection:'column', padding:slideMode==='explanation'?'0':'12px 18px 6px', alignItems:'center', minHeight:0, position:'relative', background: ap.slideBg || 'transparent' }}>
         {isBomb
-          ? <BombSlide left={bombLeft} btbSecs={btbSecs} slide={allSlides[allSlides.length-1]} showAns={showAns} />
+          ? <BombSlide left={bombLeft} btbSecs={btbSecs} slide={bombSlide} showAns={showAns} />
           : slideMode === 'explanation'
             ? <ExplanationSlide slide={currentSlide} />
           : slideMode === 'single'
             ? <SingleQSlide slide={currentSlide} q={currentQ} showAns={showAns} modeConfig={modeConfig} />
-            : <TieredSlide slide={currentSlide} showAns={showAns} />
+            : <TieredSlide slide={currentSlide} showAns={showAns} ap={ap} />
         }
 
         {/* Check-in strip */}
@@ -416,7 +483,7 @@ function ReviewTimerBar({ elapsed, totalSecs }) {
 // ── TIERED SLIDE ──
 // T1: 6q max · T2: 6q max · T3: 2q max · T4: 1q
 // Font size auto-fits based on text length, tier row height, and whether answer is shown
-function TieredSlide({ slide, showAns }) {
+function TieredSlide({ slide, showAns, ap = {} }) {
   if (!slide) return null
   const sk = slide.skill || {}
 
@@ -440,6 +507,7 @@ function TieredSlide({ slide, showAns }) {
 
   // Font size: scales down with text length and number of rows in tier
   // Also shrinks when answer is shown to fit both Q + A in the cell
+  const apFontBoost = ap.fontBoost || 0
   function cellFont(qs, showingAns) {
     const maxLen = Math.max(...qs.map(q => (q.question_text||q.q||'').length))
     const rows = qs.length / gridCols(qs.length)  // how many rows of cells
@@ -451,7 +519,7 @@ function TieredSlide({ slide, showAns }) {
                : 20
     const rowPenalty = rows > 1 ? 2 : 0
     const ansPenalty = showingAns ? 3 : 0
-    return Math.max(11, base - rowPenalty - ansPenalty)
+    return Math.max(11, base - rowPenalty - ansPenalty + apFontBoost)
   }
 
   function ansFont(qFont) { return Math.max(10, qFont - 2) }
@@ -511,11 +579,12 @@ function TieredSlide({ slide, showAns }) {
                     <div key={qi} style={{
                       background: t===4
                         ? 'linear-gradient(135deg,rgba(255,255,255,.99),rgba(255,251,235,.98))'
-                        : 'rgba(255,255,255,.97)',
+                        : (ap.cellBg || 'rgba(255,255,255,.97)'),
                       border:`${t===4?2:1.5}px solid ${TIER_BORDER[t]}`,
-                      borderRadius:7, padding:'5px 8px',
+                      borderRadius:7, padding: ap.padding || '5px 8px',
                       display:'flex', flexDirection:'column',
-                      alignItems:'center', justifyContent:'center',
+                      alignItems: ap.textAlign === 'left' ? 'flex-start' : 'center',
+                      justifyContent:'center',
                       overflow:'hidden', height:'100%', boxSizing:'border-box',
                     }}>
                       {/* Q label */}
@@ -532,16 +601,18 @@ function TieredSlide({ slide, showAns }) {
                       }} />}
                       {/* Question text */}
                       <div style={{
-                        color:'#0f172a',
-                        fontFamily:"'JetBrains Mono',monospace",
+                        color: ap.cellText || '#0f172a',
+                        fontFamily: ap.font || "'JetBrains Mono',monospace",
                         fontSize:`${font}px`,
-                        lineHeight:1.35,
+                        lineHeight: ap.lineHeight || 1.35,
+                        letterSpacing: ap.letterSpacing || 'normal',
                         whiteSpace:'pre-wrap', wordBreak:'break-word',
                         fontWeight: t===4 ? 600 : 400,
-                        textAlign:'center',
+                        textAlign: ap.textAlign || 'center',
                         overflow:'hidden',
                         flex:1,
-                        display:'flex', alignItems:'center', justifyContent:'center',
+                        display:'flex', alignItems:'center',
+                        justifyContent: ap.textAlign === 'left' ? 'flex-start' : 'center',
                         width:'100%',
                       }}>
                         {qtext}
@@ -549,12 +620,13 @@ function TieredSlide({ slide, showAns }) {
                       {/* Answer — appears below, same cell */}
                       {showAns && (
                         <div style={{
-                          color:'#166534',
-                          fontFamily:"'JetBrains Mono',monospace",
+                          color:'var(--a11y-answer-text, #166534)',
+                          fontFamily:"var(--a11y-font, 'JetBrains Mono', monospace)",
                           fontSize:`${aFont}px`,
                           fontWeight:700,
-                          lineHeight:1.3,
-                          borderTop:`1px solid ${TIER_BORDER[t]}`,
+                          lineHeight:'var(--a11y-line-height, 1.3)',
+                          letterSpacing:'var(--a11y-letter-spacing, normal)',
+                          borderTop:`1px solid var(--a11y-card-border, ${TIER_BORDER[t]})`,
                           paddingTop:3, marginTop:3,
                           width:'100%', textAlign:'center',
                           overflow:'hidden', flexShrink:0,
