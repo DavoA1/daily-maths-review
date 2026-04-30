@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase.js'
 import { getDueConcepts, getUpcomingSkills, getRetrievalGaps } from '../lib/spacedRep.js'
 import { FOUNDATIONAL } from '../lib/curriculum.js'
 import { useNavigate } from 'react-router-dom'
+import { getDailyChain } from '../lib/btbChains.js'
 import { getSlides, setStoredSlides, setTimerConfig, hasSlides } from '../lib/slideStore.js'
 
 
@@ -547,7 +548,7 @@ export default function Generate() {
           id: `${c.id}-pre${i}`, skill: sk, classSkill: c, tag: c._tag,
           singleMode: true, isBank: false, isSpotlight: true,
           questions: [q],
-          btbEasy: sk.btb_easy || '', btbHard: sk.btb_hard || '', btbChain: sk.btb_chain || '',
+          btbEasy: sk.btb_easy || '', btbHard: sk.btb_hard || '', btbChain: sk.btb_chain || getDailyChain(sk.skill_name) || '',
         }))
       })
 

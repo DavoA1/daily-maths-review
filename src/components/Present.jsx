@@ -73,6 +73,7 @@ export default function Present() {
   const [bombLeft, setBombLeft] = useState(btbSecs)
   const [ratings, setRatings] = useState({})
   const [skipped, setSkipped] = useState(new Set())
+  const [showShortcuts, setShowShortcuts] = useState(false)
   const [reviewElapsed, setReviewElapsed] = useState(0)  // seconds since first slide
   const timerRef = useRef(null)
   const bombRef = useRef(null)
@@ -223,6 +224,14 @@ export default function Present() {
     }
   }
 
+  function toggleFullscreen() {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {})
+    } else {
+      document.exitFullscreen().catch(() => {})
+    }
+  }
+
   function exitPresent() {
     clearInterval(timerRef.current); clearInterval(bombRef.current)
     channel.postMessage({ type: 'close' })
@@ -235,7 +244,10 @@ export default function Present() {
       if (e.key === 'ArrowRight' || e.key === ' ') nextQ()
       else if (e.key === 'ArrowLeft') prevQ()
       else if (e.key.toLowerCase() === 'a') toggleAns()
-      else if (e.key === 'Escape') exitPresent()
+      else if (e.key.toLowerCase() === 's') skipSlide()
+      else if (e.key.toLowerCase() === 'f') toggleFullscreen()
+      else if (e.key === '?') setShowShortcuts(s => !s)
+      else if (e.key === 'Escape') { if (showShortcuts) setShowShortcuts(false); else exitPresent() }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -293,6 +305,8 @@ export default function Present() {
             { l:'Next →', fn:nextQ, dis:isBomb },
             { l:'⏭ Skip', fn:skipSlide, col:'#f59e0b', dis:isBomb },
             { l:'📺 Student View', fn:openStudentView, col:'#34d399' },
+            { l:'⛶ Full', fn:toggleFullscreen, col:'rgba(224,231,255,.5)' },
+            { l:'? Keys', fn:()=>setShowShortcuts(s=>!s), col:'rgba(224,231,255,.5)' },
             { l:'✕ Exit', fn:exitPresent, col:'#f87171' },
           ].map(b => (
             <button key={b.l} onClick={b.fn} disabled={b.dis}
@@ -353,7 +367,32 @@ export default function Present() {
         {/* 10-minute review timer bar */}
         <ReviewTimerBar elapsed={reviewElapsed} totalSecs={600} />
       </div>
+
+      {/* Keyboard shortcuts overlay */}
+      {showShortcuts && (
+        <div onClick={() => setShowShortcuts(false)} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.7)', zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <div style={{ background:'#1e2230', border:'1px solid rgba(255,255,255,.15)', borderRadius:16, padding:'28px 36px', minWidth:360 }} onClick={e=>e.stopPropagation()}>
+            <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:18, color:'#e0e7ff', marginBottom:20, textAlign:'center' }}>⌨ Keyboard Shortcuts</div>
+            {[
+              ['→  or  Space', 'Next slide / question'],
+              ['←', 'Previous slide'],
+              ['A', 'Reveal / hide answer'],
+              ['S', 'Skip slide'],
+              ['F', 'Toggle fullscreen'],
+              ['?', 'Show / hide this panel'],
+              ['Esc', 'Close overlay / exit present'],
+            ].map(([key, desc]) => (
+              <div key={key} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 0', borderBottom:'1px solid rgba(255,255,255,.07)' }}>
+                <kbd style={{ background:'rgba(255,255,255,.1)', border:'1px solid rgba(255,255,255,.2)', borderRadius:6, padding:'3px 10px', fontFamily:"'JetBrains Mono',monospace", fontSize:13, color:'#a78bfa', letterSpacing:'.05em' }}>{key}</kbd>
+                <span style={{ color:'rgba(224,231,255,.7)', fontSize:13 }}>{desc}</span>
+              </div>
+            ))}
+            <div style={{ textAlign:'center', marginTop:16, fontSize:12, color:'rgba(224,231,255,.3)' }}>Click anywhere to close</div>
+          </div>
+        </div>
+      )}
     </div>
+  </div>
   )
 }
 
@@ -663,7 +702,6 @@ function ExplanationSlide({ slide }) {
               borderRadius:8, border:'none' }} allowFullScreen title="Video" />
           </div>
         )}
-      </div>
     </div>
   )
 }

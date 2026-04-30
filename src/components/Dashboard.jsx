@@ -3,6 +3,32 @@ import { useAuth } from '../lib/auth.jsx'
 import { supabase } from '../lib/supabase.js'
 import { getDueDate, isDue } from '../lib/spacedRep.js'
 
+
+// ── COMPETENCY SPARK BAR ─────────────────────────────────────
+function SparkBar({ history }) {
+  const recent = (history || []).slice(-8)
+  if (!recent.length) return <span style={{ color:'var(--tm)', fontSize:10 }}>No data</span>
+  const cols = { 1:'#f04a6b', 2:'#f0944a', 3:'#f0e44a', 4:'#4af0a0', 5:'#4ac8f0' }
+  const avg = recent.reduce((s,r) => s + (r.rating||0), 0) / recent.length
+  return (
+    <div title={`Avg: ${avg.toFixed(1)} — ${recent.length} sessions`}>
+      <div style={{ display:'flex', gap:2, alignItems:'flex-end', height:20 }}>
+        {recent.map((r, i) => (
+          <div key={i} style={{
+            width:6,
+            height: `${Math.max(20, (r.rating||0)/5*100)}%`,
+            background: r.skipped ? '#5a6080' : (cols[r.rating] || '#5a6080'),
+            borderRadius:2,
+            opacity: 0.4 + (i / recent.length) * 0.6,
+            title: r.skipped ? 'Skipped' : `Rating: ${r.rating}`,
+          }} />
+        ))}
+      </div>
+      <div style={{ fontSize:9, color:'var(--tm)', marginTop:2, textAlign:'center' }}>{avg.toFixed(1)}/5</div>
+    </div>
+  )
+}
+
 export default function Dashboard() {
   const { user } = useAuth()
   const [classes, setClasses] = useState([])
@@ -193,6 +219,7 @@ export default function Dashboard() {
                       <td style={{ fontSize:11, color:'var(--tm)' }}>{sd}</td>
                       <td><span className={`badge ${statusCls}`}>{statusTxt}</span></td>
                       <td><div className="pips">{pips}</div></td>
+                      <td style={{ minWidth:60 }}><SparkBar history={cs.rating_history} /></td>
                       <td>
                         <div style={{ display:'flex', gap:4 }}>
                           <button className="btn btn-ghost btn-sm" style={{ color:'var(--blu)', padding:'3px 8px' }}

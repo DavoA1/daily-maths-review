@@ -109,6 +109,7 @@ export default function QuestionBank() {
   const [loading, setLoading] = useState(true)
   const [seeding, setSeeding] = useState(false)
   const [seedDone, setSeedDone] = useState(false)
+  const [bulkOpen, setBulkOpen] = useState(false)
   const [editQ, setEditQ] = useState(null)
   const [editData, setEditData] = useState({})
   const [showAddSkill, setShowAddSkill] = useState(false)
@@ -200,6 +201,10 @@ export default function QuestionBank() {
               {seeding ? '⏳ Seeding...' : '🌱 Seed Question Bank'}
             </button>
           )}
+          <button className="btn btn-secondary btn-sm" onClick={() => setBulkOpen(true)}
+            style={{ background:'rgba(74,200,240,.08)', borderColor:'var(--blu)', color:'var(--blu)' }}>
+            📥 Bulk Upload Questions
+          </button>
           <button className="btn btn-secondary btn-sm" onClick={() => {
             const headers = ['Year','Strand','Topic','Skill','VC Code','Tier','Type','Question','Answer']
             const rows = []
@@ -370,7 +375,152 @@ export default function QuestionBank() {
         </div>
       )}
 
+      {bulkOpen && <BulkUploadModal
+        skills={skills}
+        user={user}
+        onClose={() => setBulkOpen(false)}
+        onDone={() => { setBulkOpen(false); loadAll() }}
+      />}
+
       {toast && <div className="toast">{toast}</div>}
+    </div>
+  )
+}
+
+// ── BULK UPLOAD MODAL ─────────────────────────────────────────
+function BulkUploadModal({ skills, user, onClose, onDone }) {
+  const [csvText, setCsvText] = useState('')
+  const [parsed, setParsed] = useState([])
+  const [errors, setErrors] = useState([])
+  const [uploading, setUploading] = useState(false)
+  const [result, setResult] = useState(null)
+
+  const TEMPLATE = `skill_name,tier,type,question,answer
+Expanding algebraic expressions,1,std,"Expand: 2(x + 3)","2x + 6"
+Expanding algebraic expressions,2,std,"Expand: -3(x + 4)","-3x - 12"
+Pythagoras theorem,1,std,"Find c: a=3, b=4","c = 5"`
+
+  function parseCsv(text) {
+    const rows = [], errs = []
+    const lines = text.trim().split('\n')
+    const header = lines[0].toLowerCase().split(',').map(h => h.trim().replace(/"/g,''))
+    const col = (n) => header.findIndex(h => h.includes(n))
+    const ci = { skill: col('skill'), tier: col('tier'), type: col('type'), q: col('question'), a: col('answer'), vc: col('vc'), img: col('image') }
+
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i].trim()
+      if (!line) continue
+      const cols = []; let inQ = false, cur = ''
+      for (const ch of line + ',') {
+        if (ch === '"') inQ = !inQ
+        else if (ch === ',' && !inQ) { cols.push(cur.trim()); cur = '' }
+        else cur += ch
+      }
+      const skillName = ci.skill >= 0 ? cols[ci.skill]||'' : ''
+      const tier = parseInt(ci.tier >= 0 ? cols[ci.tier] : '1') || 1
+      const question = ci.q >= 0 ? cols[ci.q]||'' : ''
+      const answer = ci.a >= 0 ? cols[ci.a]||'' : ''
+      if (!skillName || !question) { errs.push(`Row ${i+1}: missing skill_name or question`); continue }
+      if (tier < 1 || tier > 4) { errs.push(`Row ${i+1}: tier must be 1-4`); continue }
+      const match = skills.find(s => s.skill_name.toLowerCase() === skillName.toLowerCase())
+      rows.push({ skill_name: skillName, skill_id: match?.id||null, matched: !!match,
+        tier, question_type: ci.type>=0?cols[ci.type]||'std':'std',
+        question_text: question, answer_text: answer,
+        vc_code: ci.vc>=0?cols[ci.vc]||'':'', image_url: ci.img>=0?cols[ci.img]||'':'' })
+    }
+    setParsed(rows); setErrors(errs)
+  }
+
+  async function upload() {
+    const rows = parsed.filter(r => r.matched)
+    setUploading(true)
+    let ok = 0, fail = 0
+    for (const r of rows) {
+      const { error } = await supabase.from('questions').insert({
+        skill_id: r.skill_id, tier: r.tier, question_type: r.question_type||'std',
+        question_text: r.question_text, answer_text: r.answer_text,
+        vc_code: r.vc_code||'', image_url: r.image_url||null,
+        is_shared: true, created_by: user.id,
+      })
+      if (error) fail++; else ok++
+    }
+    setResult({ ok, fail, skipped: parsed.length - rows.length })
+    setUploading(false)
+  }
+
+  const matched = parsed.filter(r=>r.matched).length
+  const unmatched = parsed.filter(r=>!r.matched).length
+
+  return (
+    <div style={{ position:'fixed',inset:0,background:'rgba(0,0,0,.65)',zIndex:3000,display:'flex',alignItems:'center',justifyContent:'center',padding:20 }}>
+      <div style={{ background:'var(--s1)',border:'1px solid var(--blu)',borderRadius:14,width:'100%',maxWidth:700,maxHeight:'90vh',overflow:'auto' }}>
+        <div style={{ padding:'16px 20px',borderBottom:'1px solid var(--b2)',display:'flex',alignItems:'center',gap:10 }}>
+          <span style={{ fontSize:16 }}>📥</span>
+          <div style={{ fontFamily:'var(--font-display)',fontWeight:700,fontSize:16,flex:1 }}>Bulk Upload Questions</div>
+          <button onClick={onClose} style={{ background:'none',border:'none',color:'var(--tm)',cursor:'pointer',fontSize:18 }}>✕</button>
+        </div>
+        <div style={{ padding:20 }}>
+          {result ? (
+            <div style={{ textAlign:'center',padding:'20px 0' }}>
+              <div style={{ fontSize:40,marginBottom:12 }}>✅</div>
+              <div style={{ fontFamily:'var(--font-display)',fontWeight:700,fontSize:18,marginBottom:8 }}>Upload Complete</div>
+              <div style={{ color:'var(--grn)',fontSize:14,marginBottom:4 }}>✓ {result.ok} questions uploaded</div>
+              {result.fail>0&&<div style={{ color:'var(--red)',fontSize:14,marginBottom:4 }}>✗ {result.fail} failed</div>}
+              {result.skipped>0&&<div style={{ color:'var(--tm)',fontSize:12,marginBottom:12 }}>⚠ {result.skipped} skipped (skill not found)</div>}
+              <button className="btn btn-primary" onClick={onDone}>Done</button>
+            </div>
+          ) : (
+            <>
+              <div style={{ marginBottom:12,fontSize:12,color:'var(--td)',lineHeight:1.6,background:'var(--s2)',padding:'10px 14px',borderRadius:'var(--rs)',border:'1px solid var(--b1)' }}>
+                <strong>CSV Format:</strong> Required columns: <code>skill_name, tier (1-4), question, answer</code><br/>
+                Optional: <code>type, vc_code, image_url</code> · skill_name must exactly match a skill in the bank.
+              </div>
+              <div style={{ display:'flex',gap:8,marginBottom:10 }}>
+                <button className="btn btn-sm btn-secondary" onClick={() => {
+                  const a=document.createElement('a'); a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(TEMPLATE); a.download='questions_template.csv'; a.click()
+                }}>⬇ Download Template</button>
+              </div>
+              <textarea className="input textarea" rows={8} placeholder={TEMPLATE} value={csvText}
+                onChange={e=>setCsvText(e.target.value)}
+                style={{ fontFamily:'var(--font-mono)',fontSize:11,resize:'vertical',marginBottom:8,width:'100%' }} />
+              <button className="btn btn-primary" onClick={()=>parseCsv(csvText)} disabled={!csvText.trim()} style={{ marginBottom:12 }}>🔍 Preview</button>
+              {errors.length>0&&<div style={{ background:'rgba(240,74,107,.1)',border:'1px solid var(--red)',borderRadius:'var(--rs)',padding:'8px 12px',marginBottom:10 }}>
+                {errors.map((e,i)=><div key={i} style={{ fontSize:11,color:'var(--red)' }}>• {e}</div>)}
+              </div>}
+              {parsed.length>0&&<>
+                <div style={{ display:'flex',gap:12,marginBottom:8,fontSize:12 }}>
+                  <span style={{ color:'var(--grn)' }}>✓ {matched} matched</span>
+                  {unmatched>0&&<span style={{ color:'var(--org)' }}>⚠ {unmatched} skill not found</span>}
+                </div>
+                <div style={{ maxHeight:180,overflow:'auto',marginBottom:12,border:'1px solid var(--b2)',borderRadius:'var(--rs)' }}>
+                  <table style={{ width:'100%',fontSize:11,borderCollapse:'collapse' }}>
+                    <thead><tr style={{ background:'var(--s2)' }}>
+                      {['Skill','T','Question preview','Answer preview','✓'].map(h=>(
+                        <th key={h} style={{ padding:'5px 8px',textAlign:'left',color:'var(--tm)',borderBottom:'1px solid var(--b2)' }}>{h}</th>
+                      ))}
+                    </tr></thead>
+                    <tbody>{parsed.map((r,i)=>(
+                      <tr key={i} style={{ background:i%2?'var(--s1)':'transparent',opacity:r.matched?1:.5 }}>
+                        <td style={{ padding:'4px 8px',color:'var(--td)',maxWidth:100,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{r.skill_name}</td>
+                        <td style={{ padding:'4px 8px',color:'var(--td)' }}>T{r.tier}</td>
+                        <td style={{ padding:'4px 8px',maxWidth:180,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{r.question_text}</td>
+                        <td style={{ padding:'4px 8px',color:'var(--grn)',maxWidth:100,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{r.answer_text}</td>
+                        <td style={{ padding:'4px 8px' }}>{r.matched?<span style={{ color:'var(--grn)' }}>✓</span>:<span style={{ color:'var(--org)' }}>⚠</span>}</td>
+                      </tr>
+                    ))}</tbody>
+                  </table>
+                </div>
+                <div style={{ display:'flex',gap:8 }}>
+                  <button className="btn btn-primary" onClick={upload} disabled={uploading||!matched}>
+                    {uploading?'⏳ Uploading...':`⬆ Upload ${matched} question${matched!==1?'s':''}`}
+                  </button>
+                  <button className="btn btn-secondary" onClick={()=>{setParsed([]);setErrors([]);setCsvText('')}}>Clear</button>
+                </div>
+              </>}
+            </>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
