@@ -411,12 +411,12 @@ function TieredSlide({ slide, showAns }) {
   const t34Qs = tieredRows.filter(r=>r.tier>=3).flatMap(r=>r.qs)
   const maxShort = t12Qs.length ? Math.max(...t12Qs.map(q=>(q.question_text||q.q||'').length)) : 20
   const maxLong  = t34Qs.length ? Math.max(...t34Qs.map(q=>(q.question_text||q.q||'').length)) : 40
-  // T1/T2: min 24px, scale down only for very long text
-  const fontSm = maxShort > 100 ? 24 : maxShort > 70 ? 25 : maxShort > 45 ? 26 : 28
-  // T3/T4: more space so can be larger
-  const fontLg = maxLong > 150 ? 22 : maxLong > 100 ? 24 : maxLong > 60 ? 26 : 28
-  const ansSm = Math.max(18, fontSm - 4)
-  const ansLg = Math.max(18, fontLg - 4)
+  // Font sizes — minimum 24px guaranteed
+  // T1/T2 use same font as T3/T4 since cells are now larger
+  const fontSm = maxShort > 120 ? 24 : 28
+  const fontLg = maxLong > 120 ? 24 : 28
+  const ansSm = 20
+  const ansLg = 20
 
   return (
     <div style={{ width:'100%', maxWidth:1400, display:'flex', flexDirection:'column', flex:1, minHeight:0, overflow:'hidden' }}>
