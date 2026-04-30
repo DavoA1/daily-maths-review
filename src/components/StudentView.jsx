@@ -114,10 +114,10 @@ function SVTiered({ data }) {
   const t34Qs = tieredRows.filter(r=>r.tier>=3).flatMap(r=>r.qs)
   const maxShort = t12Qs.length ? Math.max(...t12Qs.map(q=>(q.question_text||q.q||'').length)) : 20
   const maxLong  = t34Qs.length ? Math.max(...t34Qs.map(q=>(q.question_text||q.q||'').length)) : 40
-  const fontSm = maxShort > 60 ? 12 : maxShort > 40 ? 13 : maxShort > 25 ? 15 : 17
-  const fontLg = maxLong > 120 ? 13 : maxLong > 80 ? 14 : maxLong > 50 ? 16 : 18
-  const ansSm = Math.max(10, fontSm - 2)
-  const ansLg = Math.max(11, fontLg - 2)
+  const fontSm = maxShort > 100 ? 24 : maxShort > 70 ? 25 : maxShort > 45 ? 26 : 28
+  const fontLg = maxLong > 150 ? 22 : maxLong > 100 ? 24 : maxLong > 60 ? 26 : 28
+  const ansSm = Math.max(18, fontSm - 4)
+  const ansLg = Math.max(18, fontLg - 4)
 
   return (
     <div style={{ width:'100%', maxWidth:1400, flex:1, minHeight:0, overflow:'hidden',
@@ -139,7 +139,7 @@ function SVTiered({ data }) {
           const ansFont = isHigh ? ansLg : ansSm
           const cols = gridCols(qs.length)
           const rows = qs.length / cols
-          const flexW = t === 1 ? 1 : t === 2 ? 1 : t === 3 ? 2 : 2.6
+          const flexW = t === 1 ? 1.5 : t === 2 ? 1.5 : t === 3 ? 1.35 : 1.65
 
           return (
             <div key={t} style={{ display:'flex', gap:6, flex:flexW, minHeight:0, overflow:'hidden' }}>

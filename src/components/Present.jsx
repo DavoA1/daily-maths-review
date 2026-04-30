@@ -411,10 +411,12 @@ function TieredSlide({ slide, showAns }) {
   const t34Qs = tieredRows.filter(r=>r.tier>=3).flatMap(r=>r.qs)
   const maxShort = t12Qs.length ? Math.max(...t12Qs.map(q=>(q.question_text||q.q||'').length)) : 20
   const maxLong  = t34Qs.length ? Math.max(...t34Qs.map(q=>(q.question_text||q.q||'').length)) : 40
-  const fontSm = maxShort > 60 ? 10 : maxShort > 40 ? 11 : maxShort > 25 ? 12 : 13
-  const fontLg = maxLong > 120 ? 11 : maxLong > 80 ? 12 : maxLong > 50 ? 13 : 15
-  const ansSm = Math.max(9, fontSm - 1)
-  const ansLg = Math.max(10, fontLg - 1)
+  // T1/T2: min 24px, scale down only for very long text
+  const fontSm = maxShort > 100 ? 24 : maxShort > 70 ? 25 : maxShort > 45 ? 26 : 28
+  // T3/T4: more space so can be larger
+  const fontLg = maxLong > 150 ? 22 : maxLong > 100 ? 24 : maxLong > 60 ? 26 : 28
+  const ansSm = Math.max(18, fontSm - 4)
+  const ansLg = Math.max(18, fontLg - 4)
 
   return (
     <div style={{ width:'100%', maxWidth:1400, display:'flex', flexDirection:'column', flex:1, minHeight:0, overflow:'hidden' }}>
@@ -437,7 +439,7 @@ function TieredSlide({ slide, showAns }) {
           const cols = gridCols(qs.length)
           const rows = qs.length / cols
           // T3/T4 get more vertical space since they have fewer, longer questions
-          const flexW = t === 1 ? 1 : t === 2 ? 1 : t === 3 ? 1.8 : 2.2
+          const flexW = t === 1 ? 1.5 : t === 2 ? 1.5 : t === 3 ? 1.35 : 1.65
 
           return (
             <div key={t} style={{ display:'flex', gap:5, flex:flexW, minHeight:0, overflow:'hidden', alignItems:'stretch' }}>
