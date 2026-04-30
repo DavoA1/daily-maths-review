@@ -307,12 +307,14 @@ export default function Generate() {
   useEffect(() => {
     loadClasses()
     loadAllSkills()
-    // Restore slides from store (persists across navigation)
-    if (hasSlides()) {
-      const stored = getSlides()
-      setSlides(stored)
-    }
   }, [user])
+
+  // Restore slides on every mount (including returning from Present)
+  useEffect(() => {
+    if (hasSlides()) {
+      setSlides(getSlides())
+    }
+  }, [])  // [] = runs on every mount
   useEffect(() => { if (activeClass) loadClassData(activeClass) }, [activeClass])
 
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 2500) }

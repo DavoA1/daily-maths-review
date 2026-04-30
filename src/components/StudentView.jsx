@@ -268,22 +268,46 @@ function SVSingleQ({ data }) {
 // ── EXPLANATION STUDENT VIEW ──
 function SVExplanation({ data }) {
   const yt = (data.expVideo||'').replace('watch?v=','embed/').replace('youtu.be/','youtube.com/embed/')
+  const hasMedia = data.expImage || yt
   return (
-    <div style={{ width:'100%', maxWidth:900, flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:20 }}>
-      <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'clamp(22px,3.5vw,42px)', color:'#1e1b4b', textAlign:'center' }}>
-        {data.expTitle || 'Explanation'}
-      </div>
-      {data.expImage && (
-        <img src={data.expImage} alt="" style={{ maxHeight:280, maxWidth:'90%', objectFit:'contain', borderRadius:12, boxShadow:'0 4px 16px rgba(0,0,0,.12)' }} />
-      )}
-      {yt && (
-        <iframe src={yt} style={{ width:'100%', maxWidth:640, height:360, borderRadius:12, border:'none' }} allowFullScreen title="Video" />
-      )}
-      {data.expText && (
-        <div style={{ background:'white', borderRadius:14, padding:'22px 32px', maxWidth:700, width:'100%', color:'#1e293b', fontFamily:"'Figtree',sans-serif", fontSize:'clamp(16px,2vw,24px)', lineHeight:1.7, textAlign:'center', boxShadow:'0 4px 12px rgba(0,0,0,.08)', border:'1px solid #e2e8f0' }}>
-          {data.expText}
+    <div style={{ width:'100%', maxWidth:1100, display:'flex', flexDirection:'column', flex:1, minHeight:0 }}>
+      {/* Title */}
+      <div style={{ background:'#f5f0ff', border:'1px solid #d8b4fe', borderRadius:12,
+        padding:'14px 28px', marginBottom:14, textAlign:'center', flexShrink:0 }}>
+        <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800,
+          fontSize:'clamp(20px,2.8vw,38px)', color:'#1e1b4b', lineHeight:1.2 }}>
+          {data.expTitle || 'Explanation'}
         </div>
-      )}
+      </div>
+      {/* Content */}
+      <div style={{ flex:1, minHeight:0, background:'white', borderRadius:12,
+        padding:'20px 28px', display:'flex', gap:24,
+        border:'1px solid #e2e8f0', boxShadow:'0 2px 12px rgba(0,0,0,.06)',
+        overflow:'auto',
+        flexDirection: hasMedia ? 'row' : 'column',
+        alignItems: hasMedia ? 'flex-start' : 'center',
+        justifyContent: hasMedia ? 'flex-start' : 'center' }}>
+        {data.expText && (
+          <div style={{ flex:1, color:'#1e293b', fontFamily:"'Figtree',sans-serif",
+            fontSize:'clamp(16px,2vw,26px)', lineHeight:1.75,
+            whiteSpace:'pre-wrap', textAlign: hasMedia ? 'left' : 'center' }}>
+            {data.expText}
+          </div>
+        )}
+        {data.expImage && !yt && (
+          <div style={{ flexShrink:0, maxWidth:'45%' }}>
+            <img src={data.expImage} alt="" style={{ width:'100%', maxHeight:340, objectFit:'contain', borderRadius:8 }} />
+          </div>
+        )}
+        {yt && (
+          <div style={{ flexShrink:0, width:'45%' }}>
+            <iframe src={yt} style={{ width:'100%', aspectRatio:'16/9', borderRadius:8, border:'none' }} allowFullScreen title="Video" />
+          </div>
+        )}
+        {!data.expText && !data.expImage && !yt && (
+          <div style={{ color:'#94a3b8', fontSize:16, fontStyle:'italic' }}>No content added.</div>
+        )}
+      </div>
     </div>
   )
 }
