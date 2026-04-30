@@ -318,6 +318,8 @@ function SVExplanation({ data }) {
 function SVBomb({ data, bombLeft }) {
   const urgent = bombLeft <= 10
   const btbMode = window.__dmr_btbMode || 'chain'
+  const chainData = data.btbChainData || null
+  const hasChain = chainData && chainData.normal?.length
   return (
     <div style={{ width:'100%',maxWidth:1200,flex:1,display:'flex',flexDirection:'column' }}>
       <div style={{ fontFamily:"'Syne',sans-serif",fontSize:'clamp(26px,5vw,54px)',fontWeight:800,color:'#dc2626',textAlign:'center',marginBottom:6 }}>💣 BEAT THE BOMB 💣</div>

@@ -583,7 +583,12 @@ export default function Generate() {
         const byTier = {1:[],2:[],3:[],4:[]}
         allQs.forEach(q => { if(byTier[q.tier]) byTier[q.tier].push(q) })
 
-        const base = { skill: sk, classSkill: c, tag, btbEasy: sk.btb_easy||'', btbHard: sk.btb_hard||'', btbChain: sk.btb_chain || getDailyChain(sk.skill_name) || '', isWC: lowStreak }
+        const _chainData = getDailyChain(sk.skill_name)
+        const base = { skill: sk, classSkill: c, tag,
+          btbEasy: sk.btb_easy||'', btbHard: sk.btb_hard||'',
+          btbChain: typeof _chainData === 'string' ? _chainData : '',
+          btbChainData: typeof _chainData === 'object' ? _chainData : null,
+          isWC: lowStreak }
 
         console.log(`[Generate] ${ci+1}/${due.length}: ${sk.skill_name} [${inclusionTier}]`)
 
