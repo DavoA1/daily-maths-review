@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase.js'
 import { getDueConcepts, getUpcomingSkills, getRetrievalGaps } from '../lib/spacedRep.js'
 import { FOUNDATIONAL } from '../lib/curriculum.js'
 import { useNavigate } from 'react-router-dom'
+import { getSlides, setStoredSlides, setTimerConfig, hasSlides } from '../lib/slideStore.js'
 
 
 // ─── INLINE QUESTION GENERATOR ───────────────────────────────
@@ -252,9 +253,8 @@ function augmentWithGenerated(skill, bankedQuestions) {
   return result
 }
 // ─────────────────────────────────────────────────────────────
-// Store generated slides globally so Present page can access them
-export let CURRENT_SLIDES = []
-export function setCurrentSlides(s) { CURRENT_SLIDES = s }
+// setCurrentSlides now writes to the shared slideStore
+function setCurrentSlides(s) { setStoredSlides(s) }
 const channel = new BroadcastChannel('dmr_student_view')
 
 const TIER_LABELS = ['', 'T1 · Foundation', 'T2 · Core', 'T3 · Extension', 'T4 · Challenge']
@@ -304,7 +304,15 @@ export default function Generate() {
   const [summary, setSummary] = useState(null)
   const [toast, setToast] = useState('')
 
-  useEffect(() => { loadClasses(); loadAllSkills() }, [user])
+  useEffect(() => {
+    loadClasses()
+    loadAllSkills()
+    // Restore slides from store (persists across navigation)
+    if (hasSlides()) {
+      const stored = getSlides()
+      setSlides(stored)
+    }
+  }, [user])
   useEffect(() => { if (activeClass) loadClassData(activeClass) }, [activeClass])
 
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 2500) }
@@ -458,6 +466,7 @@ export default function Generate() {
     if (!activeClass) { showToast('No class selected'); return }
     setLoading(true)
     setSkippedSlides(new Set())
+    setTimerConfig(timerSecs, btbSecs)
     try {
       console.log('[Generate] Starting...')
       const freshData = await loadClassData(activeClass)
@@ -629,6 +638,52 @@ export default function Generate() {
       setCurrentSlides(n)
       return n
     })
+  }
+
+  function regenerateSlide(idx) {
+    const slide = slides[idx]
+    if (!slide || slide.isExplanation || slide.isFoundational) return
+    const sk = slide.skill || {}
+    const cs = slide.classSkill
+    if (!sk.id) return
+
+    // Re-shuffle questions with a new seed
+    const newSeed = Date.now() + Math.random() * 999999
+    const qMap = {}
+    ;(questions || []).forEach(q => {
+      if (!qMap[q.skill_id]) qMap[q.skill_id] = []
+      qMap[q.skill_id].push(q)
+    })
+
+    // Fisher-Yates shuffle with new seed
+    const qs = [...(qMap[sk.id] || [])]
+    for (let i = qs.length - 1; i > 0; i--) {
+      const j = Math.floor(((newSeed * (i+1)) % 999983) / 999983 * (i+1))
+      if (qs[i] && qs[j]) [qs[i], qs[j]] = [qs[j], qs[i]]
+    }
+    qs.sort((a, b) => a.tier - b.tier)
+
+    let allQs = qs
+    try { allQs = augmentWithGenerated(sk, qs) } catch(e) {}
+    allQs.sort((a,b) => a.tier - b.tier)
+
+    // Rebuild the slide with fresh questions
+    setSlides(s => {
+      const n = [...s]
+      if (slide.isBank) {
+        n[idx] = { ...n[idx], questions: allQs }
+      } else if (slide.isSpotlight) {
+        const byTier = {1:[],2:[],3:[],4:[]}
+        allQs.forEach(q => { if(byTier[q.tier]) byTier[q.tier].push(q) })
+        const spotQ = slide.isMC
+          ? (allQs.find(q => q.question_type==='mc') || byTier[2][0] || byTier[1][0])
+          : (slide.isWC ? byTier[1][0] : byTier[2][0] || byTier[1][0])
+        if (spotQ) n[idx] = { ...n[idx], questions: [spotQ] }
+      }
+      setCurrentSlides(n)
+      return n
+    })
+    showToast('↺ Slide regenerated')
   }
 
   function removeQuestion(slideIdx, qIdx) {
@@ -862,6 +917,9 @@ export default function Generate() {
                               style={{ padding: '4px 10px', border: `1px solid ${slides[si]?.singleMode ? 'var(--blu)' : 'var(--b2)'}`, borderRadius: 4, background: slides[si]?.singleMode ? 'rgba(74,200,240,.1)' : 'transparent', color: slides[si]?.singleMode ? 'var(--blu)' : 'var(--tm)', fontSize: 10, cursor: 'pointer' }}>
                               {slides[si]?.singleMode ? '1️⃣ Single ✓' : '📋 Tiered'}
                             </button>
+                          )}
+                          {!slide.isExplanation && !slide.isFoundational && (
+                            <button className="btn btn-ghost btn-sm" style={{ color: 'var(--acc)', fontSize: 11, padding: '2px 6px' }} onClick={() => regenerateSlide(si)} title="Regenerate questions">↺</button>
                           )}
                           <button className="btn btn-ghost btn-sm" style={{ color: 'var(--td)', fontSize: 12, padding: '2px 5px' }} onClick={() => moveSlide(si, -1)} title="Move up">↑</button>
                           <button className="btn btn-ghost btn-sm" style={{ color: 'var(--td)', fontSize: 12, padding: '2px 5px' }} onClick={() => moveSlide(si, 1)} title="Move down">↓</button>

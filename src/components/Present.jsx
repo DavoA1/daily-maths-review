@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { CURRENT_SLIDES } from './Generate.jsx'
+import { getSlides, getTimerSecs, getBtbSecs } from '../lib/slideStore.js'
 import { supabase } from '../lib/supabase.js'
 import { useAuth } from '../lib/auth.jsx'
 
@@ -55,10 +55,11 @@ export default function Present() {
   const { state } = useLocation()
   const navigate = useNavigate()
   const { user } = useAuth()
-  // Use CURRENT_SLIDES (updated by Generate) if available, fall back to route state
-  const allSlides = (CURRENT_SLIDES && CURRENT_SLIDES.length > 0 ? CURRENT_SLIDES : state?.slides) || []
-  const timerSecs = state?.timerSecs || 20
-  const btbSecs = state?.btbSecs || 90
+  // Read slides from the shared store (persists across navigation)
+  const storedSlides = getSlides()
+  const allSlides = (storedSlides.length > 0 ? storedSlides : state?.slides) || []
+  const timerSecs = getTimerSecs() || state?.timerSecs || 20
+  const btbSecs   = getBtbSecs()   || state?.btbSecs   || 90
 
   // Each slide is either:
   // mode='tiered'  → show all questions in tier rows (10-20 questions)
