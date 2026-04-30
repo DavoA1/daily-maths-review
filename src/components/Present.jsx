@@ -389,6 +389,8 @@ export default function Present() {
       )}
     </div>
   )
+}
+
 // ── REVIEW TIMER BAR ────────────────────────────────────────
 function ReviewTimerBar({ elapsed, totalSecs }) {
   const pct = Math.min(100, (elapsed / totalSecs) * 100)
@@ -695,6 +697,7 @@ function ExplanationSlide({ slide }) {
               borderRadius:8, border:'none' }} allowFullScreen title="Video" />
           </div>
         )}
+      </div>
     </div>
   )
 }
