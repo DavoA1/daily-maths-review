@@ -60,7 +60,7 @@ export const VC2_CURRICULUM = {
   'VC2M9M03': {
     strand: 'Measurement',
     level: 'Yr 9',
-    description: 'solve spatial problems, applying angle properties, scale, similarity, ratio, Pythagoras\' theorem and trigonometry in right-angled triangles',
+    description: 'solve spatial problems, applying angle properties, scale, similarity, ratio, Pythagoras\’ theorem and trigonometry in right-angled triangles',
     elaborations: ['investigating the applications of Pythagoras\' theorem in authentic problems, including applying Pythagoras\' theorem and trigonometry to problems in surveying and design', 'applying the formula for calculation of distances between points on the Cartesian plane from their coordinates, emphasising the connection to vertical and horizontal displacements between the points', 'understanding the relationship between the corresponding sides of similar right-angled triangles and establishing the relationship between areas of similar figures and the ratio of corresponding sides'],
   },
   'VC2M9M04': {
@@ -90,7 +90,7 @@ export const VC2_CURRICULUM = {
   'VC2M9P02': {
     strand: 'Probability',
     level: 'Yr 9',
-    description: 'calculate relative frequencies from given or collected data to estimate probabilities of events involving \'and\', inclusive \'or\' and exclusive \'or\'',
+    description: 'calculate relative frequencies from given or collected data to estimate probabilities of events involving \’and\’, inclusive \’or\’ and exclusive \’or\’',
     elaborations: ['understanding that relative frequencies from large data sets or long-run experiments can provide reliable measures of probability and can be used to make predictions of decisions', 'using Venn diagrams or two-way tables to estimate frequencies of events involving \'and\' and \'or\' questions'],
   },
   'VC2M9P03': {
@@ -132,7 +132,7 @@ export const VC2_CURRICULUM = {
   'VC2M9ST03': {
     strand: 'Statistics',
     level: 'Yr 9',
-    description: 'represent the distribution of multiple data sets for numerical variables using comparative representations such as back-to-back stem-and-leaf plots and histograms; describe data, using terms including \'skewed\', \'symmetric\' and \'bi-modal\'; compare data distributions using mean, median and range',
+    description: 'represent the distribution of multiple data sets for numerical variables using comparative representations such as back-to-back stem-and-leaf plots and histograms; describe data, using terms including \’skewed\’, \’symmetric\’ and \’bi-modal\’; compare data distributions using mean, median and range',
     elaborations: ['describing the shape of the distribution of data using terms such as \'positive skew\', \'negative skew\', \'symmetric\' and \'bi-modal\'', 'using stem-and-leaf plots to compare 2 like sets of data such as the heights of girls and the heights of boys in a class', 'constructing grouped histograms that show trends in health issues such as lung cancer, leukaemia, stroke and diabetes, and using the graph to justify, verify or invalidate claims'],
   },
   'VC2M9ST04': {
@@ -227,7 +227,7 @@ export const VC2_CURRICULUM = {
   },
   'VC2M8SP03': {
     strand: 'Space', level: 'Yr 8',
-    description: 'Describe and represent 3D objects including using Euler's formula'
+    description: 'Describe and represent 3D objects including using Euler’s formula'
   },
   'VC2M8SP04': {
     strand: 'Space', level: 'Yr 8',
