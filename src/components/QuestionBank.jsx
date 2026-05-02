@@ -5,10 +5,6 @@ import { seedAll } from '../lib/seed.js'
 import { seedYear8 } from '../lib/seed_yr8.js'
 import { seedYear7 } from '../lib/seed_yr7.js'
 import { seedYear10 } from '../lib/seed_yr10.js'
-import { seedYear8 } from '../lib/seed_yr8.js'
-import { seedYear7 } from '../lib/seed_yr7.js'
-import { seedYear10 } from '../lib/seed_yr10.js'
-import { seedYear8 } from '../lib/seedYear8.js'
 import { VC2_CURRICULUM } from '../lib/vc2curriculum.js'
 
 function downloadCSV(filename, rows, headers) {
@@ -116,18 +112,6 @@ export default function QuestionBank() {
   const [loading, setLoading] = useState(true)
   const [seeding, setSeeding] = useState(false)
   const [seedDone, setSeedDone] = useState(false)
-  const [seedYr8Done, setSeedYr8Done] = useState(false)
-  const [seedingYr8, setSeedingYr8] = useState(false)
-  const [seedYr7Done, setSeedYr7Done] = useState(false)
-  const [seedingYr7, setSeedingYr7] = useState(false)
-  const [seedYr10Done, setSeedYr10Done] = useState(false)
-  const [seedingYr10, setSeedingYr10] = useState(false)
-  const [seedYr8Done, setSeedYr8Done] = useState(false)
-  const [seedingYr8, setSeedingYr8] = useState(false)
-  const [seedYr7Done, setSeedYr7Done] = useState(false)
-  const [seedingYr7, setSeedingYr7] = useState(false)
-  const [seedYr10Done, setSeedYr10Done] = useState(false)
-  const [seedingYr10, setSeedingYr10] = useState(false)
   const [seedYr8Done, setSeedYr8Done] = useState(false)
   const [seedingYr8, setSeedingYr8] = useState(false)
   const [seedYr7Done, setSeedYr7Done] = useState(false)
