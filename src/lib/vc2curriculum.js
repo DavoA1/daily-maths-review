@@ -272,7 +272,7 @@ export const VC2_CURRICULUM = {
   'VC2M7M04': { strand:'Measurement', level:'Yr 7', description:'Angles in parallel lines and transversals' },
   'VC2M7M05': { strand:'Measurement', level:'Yr 7', description:'Interior angle sum of triangles and polygons' },
   'VC2M7M06': { strand:'Measurement', level:'Yr 7', description:'Units of measurement and conversions; ratios in measurement contexts' },
-  'VC2M7SP01': { strand:'Space', level:'Yr 7', description:'3D objects in 2D; nets; Euler's formula' },
+  'VC2M7SP01': { strand:'Space', level:'Yr 7', description:'3D objects in 2D; nets; Euler’s formula' },
   'VC2M7SP02': { strand:'Space', level:'Yr 7', description:'Classifying triangles and quadrilaterals by sides and angles' },
   'VC2M7SP03': { strand:'Space', level:'Yr 7', description:'Transformations: reflections, rotations, translations, enlargements' },
   'VC2M7ST01': { strand:'Statistics', level:'Yr 7', description:'Types of data; data collection methods; bias' },
