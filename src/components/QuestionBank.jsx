@@ -3,6 +3,7 @@ import { useAuth } from '../lib/auth.jsx'
 import { supabase } from '../lib/supabase.js'
 import { seedAll } from '../lib/seed.js'
 import { seedYear7 } from '../lib/seed_yr7.js'
+import { seedYear8 } from '../lib/seed_yr8.js'
 import { seedYear10 } from '../lib/seed_yr10.js'
 import { VC2_CURRICULUM } from '../lib/vc2curriculum.js'
 
@@ -147,15 +148,20 @@ export default function QuestionBank() {
     setSeedProgress('Starting...')
     let totalSkills = 0, totalQs = 0
     try {
-      if (seedYears[9]) {
-        setSeedProgress('Seeding Year 9...')
-        const r = await seedAll()
-        totalSkills += r.skillCount || 0; totalQs += r.qCount || 0
-      }
       if (seedYears[7]) {
         setSeedProgress('Seeding Year 7...')
         const r = await seedYear7(m => setSeedProgress(m))
         totalSkills += r.skillCount || 0; totalQs += r.questionCount || 0
+      }
+      if (seedYears[8]) {
+        setSeedProgress('Seeding Year 8...')
+        const r = await seedYear8(m => setSeedProgress(m))
+        totalSkills += r.skillCount || 0; totalQs += r.questionCount || 0
+      }
+      if (seedYears[9]) {
+        setSeedProgress('Seeding Year 9...')
+        const r = await seedAll()
+        totalSkills += r.skillCount || 0; totalQs += r.qCount || 0
       }
       if (seedYears[10]) {
         setSeedProgress('Seeding Year 10...')
@@ -417,6 +423,7 @@ export default function QuestionBank() {
             <div style={{ display:'flex', flexDirection:'column', gap:10, marginBottom:24 }}>
               {[
                 { yr: 7, label: 'Year 7', desc: '895 questions · VC2M7 curriculum' },
+                { yr: 8, label: 'Year 8', desc: '500 questions · VC2M8 curriculum' },
                 { yr: 9, label: 'Year 9', desc: '1,442 questions · VC2M9 curriculum' },
                 { yr: 10, label: 'Year 10', desc: '656 questions · VC2M10 curriculum' },
               ].map(({ yr, label, desc }) => (
