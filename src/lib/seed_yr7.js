@@ -403,9 +403,9 @@ const SKILLS_YR7 = [
       { tier:1, q:'What is a net?', a:'A 2D shape that folds to make a 3D object' },
       { tier:1, q:'How many edges does a cube have?', a:'12' },
       { tier:2, q:'Sketch the net of a square pyramid.', a:'One square base + 4 triangular faces' },
-      { tier:2, q:'Apply Euler\'s formula to a pentagonal prism: F=7, E=15. Find V.', a:'V = 2 − F + E = 2 − 7 + 15 = 10' },
+      { tier:2, q:'Apply Euler\’s formula to a pentagonal prism: F=7, E=15. Find V.', a:'V = 2 − F + E = 2 − 7 + 15 = 10' },
       { tier:3, q:'A box is 5 cm × 3 cm × 2 cm. Sketch two different nets.', a:'Multiple valid nets (11 different nets exist for a cuboid)' },
-      { tier:4, q:'A triangular pyramid (tetrahedron) has 4 faces, 6 edges. Verify Euler\'s formula.', a:'V = 4 vertices; F+V−E = 4+4−6 = 2 ✓' },
+      { tier:4, q:'A triangular pyramid (tetrahedron) has 4 faces, 6 edges. Verify Euler\’s formula.', a:'V = 4 vertices; F+V−E = 4+4−6 = 2 ✓' },
     ]
   },
 
@@ -459,7 +459,7 @@ const SKILLS_YR7 = [
       { tier:2, q:'A researcher surveys 50 students from a school of 500. What type of sampling?', a:'Sample (systematic, random, or convenience depending on method)' },
       { tier:2, q:'Give an example of primary data collection.', a:'Conducting your own survey, measuring, observing directly' },
       { tier:3, q:'A researcher surveys students near the library at lunchtime. Identify the bias.', a:'Only students who use the library at lunchtime — not representative of all students' },
-      { tier:4, q:'Design a survey question to find students\' average daily screen time that avoids bias.', a:'Open-ended numeric question, no leading language; e.g. "How many hours per day do you use screens on average?"' },
+      { tier:4, q:'Design a survey question to find students\’ average daily screen time that avoids bias.', a:'Open-ended numeric question, no leading language; e.g. "How many hours per day do you use screens on average?"' },
     ]
   },
 
@@ -671,7 +671,7 @@ const SKILLS_YR7 = [
       { tier:2, q:'What is a class interval?', a:'A range of values grouped together in a frequency table or histogram' },
       { tier:3, q:'Describe a positively skewed distribution.', a:'Most values are low with a few very large values pulling the tail to the right' },
       { tier:3, q:'Explain the difference between a bar graph and a histogram.', a:'Bar graph: categorical data, gaps between bars. Histogram: continuous numerical data, no gaps.' },
-      { tier:4, q:'20 students' scores: 45,52,58,61,65,67,70,72,73,74,75,76,77,78,80,82,84,88,91,95. Construct a frequency table with class intervals 40-59, 60-79, 80-99.', a:'40-59: 3; 60-79: 11; 80-99: 6' },
+      { tier:4, q:'20 students\’ scores: 45,52,58,61,65,67,70,72,73,74,75,76,77,78,80,82,84,88,91,95. Construct a frequency table with class intervals 40-59, 60-79, 80-99.', a:'40-59: 3; 60-79: 11; 80-99: 6' },
     ]
   },
 
@@ -680,8 +680,8 @@ const SKILLS_YR7 = [
       { tier:2, q:'House prices: $450K, $480K, $500K, $520K, $1.8M. Which average best represents typical price?', a:'Median ($500K) — mean is pulled up by the outlier' },
       { tier:2, q:'Shoe sizes: 38, 40, 40, 42, 40. Which measure is most useful for a shoe shop?', a:'Mode (40) — most common size to stock' },
       { tier:3, q:'When is the mean the best measure of centre?', a:'When data is roughly symmetric and has no outliers' },
-      { tier:3, q:'A class of 30 students scored a mean of 72. One student's score is not counted. The new mean is 73. Find the uncounted score.', a:'Total = 2160. New total = 29 × 73 = 2117. Missing = 43' },
-      { tier:4, q:'Scores: 5, 8, x, 12, 15, 18. The mean is 11. Find x and determine if it's the median too.', a:'Sum = 66, 5+8+x+12+15+18=66, x=8. Sorted: 5,8,8,12,15,18. Median = (8+12)/2 = 10 ≠ 11.' },
+      { tier:3, q:'A class of 30 students scored a mean of 72. One student\’s score is not counted. The new mean is 73. Find the uncounted score.', a:'Total = 2160. New total = 29 × 73 = 2117. Missing = 43' },
+      { tier:4, q:'Scores: 5, 8, x, 12, 15, 18. The mean is 11. Find x and determine if it\’s the median too.', a:'Sum = 66, 5+8+x+12+15+18=66, x=8. Sorted: 5,8,8,12,15,18. Median = (8+12)/2 = 10 ≠ 11.' },
     ]
   },
 
@@ -838,7 +838,7 @@ const SKILLS_YR7 = [
       { tier:1, q:'How do you construct a perpendicular bisector?', a:'Open compass to more than half the line length; draw arcs from each end; join intersections.' },
       { tier:2, q:'What equipment is used to accurately construct angles?', a:'Protractor and ruler, or compass' },
       { tier:2, q:'Describe how to construct a 60° angle.', a:'Draw an arc from the vertex; mark where it crosses the arms; the equilateral triangle gives 60°.' },
-      { tier:3, q:'Explain why all triangles with a 90° angle and hypotenuse 10 cm lie on a semicircle.', a:'By Thales' theorem: the right angle is subtended by a diameter, so the vertex lies on the circle.' },
+      { tier:3, q:'Explain why all triangles with a 90° angle and hypotenuse 10 cm lie on a semicircle.', a:'By Thales\’ theorem: the right angle is subtended by a diameter, so the vertex lies on the circle.' },
       { tier:4, q:'Using only a ruler and compass, construct a 45° angle. Describe each step.', a:'Construct 90° (perpendicular), then bisect it to get 45°.' },
     ]
   },
@@ -848,7 +848,7 @@ const SKILLS_YR7 = [
   { year: '7', strand: 'Statistics', topic: 'Data Collection', skill: 'Surveys and questionnaires', vc: 'VC2M7ST01',
     questions: [
       { tier:1, q:'What is the difference between a survey and an experiment?', a:'Survey: asks questions/observes. Experiment: manipulates variables to test cause and effect.' },
-      { tier:2, q:'Give an example of a biased survey question.', a:'e.g. "Don't you think homework is too much?" — leads respondent toward yes.' },
+      { tier:2, q:'Give an example of a biased survey question.', a:'e.g. "Don\’t you think homework is too much?" — leads respondent toward yes.' },
       { tier:2, q:'What is a census?', a:'A survey that includes every member of a population.' },
       { tier:3, q:'You want to find the favourite sport of Year 7 students. Describe a fair sampling method.', a:'Random sample: put all names in a hat and draw 30, or use a random number generator.' },
       { tier:4, q:'A survey asks "Do you prefer pizza or pasta?" but 40% of respondents are Italian. Is the sample likely representative? Why?', a:'No — the sample is biased toward Italian cuisine; results would not represent the whole population.' },
@@ -876,7 +876,7 @@ const SKILLS_YR7 = [
       { tier:2, q:'What is 0.5% of 6000?', a:'30' },
       { tier:3, q:'In a class of 32, 75% passed. How many passed?', a:'24' },
       { tier:3, q:'A price increased by 20% to become $84. Original price?', a:'$70' },
-      { tier:4, q:'A town's population was 4500. It grew by 12% in year 1 and 8% in year 2. New population?', a:'4500 × 1.12 × 1.08 = 5443 (approx)' },
+      { tier:4, q:'A town\’s population was 4500. It grew by 12% in year 1 and 8% in year 2. New population?', a:'4500 × 1.12 × 1.08 = 5443 (approx)' },
     ]
   },
 
@@ -920,7 +920,7 @@ const SKILLS_YR7 = [
       { tier:2, q:'A rectangle has perimeter 30 cm and length 3 times its width. Find dimensions.', a:'2(w + 3w) = 30, w = 3.75 cm, l = 11.25 cm' },
       { tier:2, q:'Write an expression for the perimeter of a triangle with sides x, x+3, 2x−1.', a:'4x + 2' },
       { tier:3, q:'A square has perimeter (8x+4) cm. A rectangle has length (2x+1) and width x. They have equal perimeters. Find x.', a:'8x+4 = 2(3x+1), 8x+4 = 6x+2, 2x = −2, x = −1. Check validity.' },
-      { tier:4, q:'An equilateral triangle and a square have equal perimeters. The triangle's side is 4 m more than the square's side. Find both.', a:'3s = 4(s−4), 3s = 4s − 16, s = 16 m. Triangle side = 20 m; each perimeter = 64 m.' },
+      { tier:4, q:'An equilateral triangle and a square have equal perimeters. The triangle\’s side is 4 m more than the square\’s side. Find both.', a:'3s = 4(s−4), 3s = 4s − 16, s = 16 m. Triangle side = 20 m; each perimeter = 64 m.' },
     ]
   },
 
