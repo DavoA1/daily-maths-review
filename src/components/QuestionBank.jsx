@@ -2,6 +2,13 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../lib/auth.jsx'
 import { supabase } from '../lib/supabase.js'
 import { seedAll } from '../lib/seed.js'
+import { seedYear8 } from '../lib/seed_yr8.js'
+import { seedYear7 } from '../lib/seed_yr7.js'
+import { seedYear10 } from '../lib/seed_yr10.js'
+import { seedYear8 } from '../lib/seed_yr8.js'
+import { seedYear7 } from '../lib/seed_yr7.js'
+import { seedYear10 } from '../lib/seed_yr10.js'
+import { seedYear8 } from '../lib/seedYear8.js'
 import { VC2_CURRICULUM } from '../lib/vc2curriculum.js'
 
 function downloadCSV(filename, rows, headers) {
@@ -109,6 +116,24 @@ export default function QuestionBank() {
   const [loading, setLoading] = useState(true)
   const [seeding, setSeeding] = useState(false)
   const [seedDone, setSeedDone] = useState(false)
+  const [seedYr8Done, setSeedYr8Done] = useState(false)
+  const [seedingYr8, setSeedingYr8] = useState(false)
+  const [seedYr7Done, setSeedYr7Done] = useState(false)
+  const [seedingYr7, setSeedingYr7] = useState(false)
+  const [seedYr10Done, setSeedYr10Done] = useState(false)
+  const [seedingYr10, setSeedingYr10] = useState(false)
+  const [seedYr8Done, setSeedYr8Done] = useState(false)
+  const [seedingYr8, setSeedingYr8] = useState(false)
+  const [seedYr7Done, setSeedYr7Done] = useState(false)
+  const [seedingYr7, setSeedingYr7] = useState(false)
+  const [seedYr10Done, setSeedYr10Done] = useState(false)
+  const [seedingYr10, setSeedingYr10] = useState(false)
+  const [seedYr8Done, setSeedYr8Done] = useState(false)
+  const [seedingYr8, setSeedingYr8] = useState(false)
+  const [seedYr7Done, setSeedYr7Done] = useState(false)
+  const [seedingYr7, setSeedingYr7] = useState(false)
+  const [seedYr10Done, setSeedYr10Done] = useState(false)
+  const [seedingYr10, setSeedingYr10] = useState(false)
   const [bulkOpen, setBulkOpen] = useState(false)
   const [editQ, setEditQ] = useState(null)
   const [editData, setEditData] = useState({})
@@ -130,6 +155,19 @@ export default function QuestionBank() {
     setQuestions(qs || [])
     setSeedDone((sk || []).length > 0)
     setLoading(false)
+  }
+
+  async function handleSeedYr8() {
+    setSeedingYr8(true)
+    try {
+      const result = await seedYear8(user)
+      setSeedYr8Done(true)
+      showToast(`Year 8: ${result.skillCount} skills, ${result.questionCount} questions seeded`)
+    } catch(e) {
+      showToast(`Error: ${e.message}`)
+    }
+    setSeedingYr8(false)
+    loadAll()
   }
 
   async function handleSeed() {
@@ -198,7 +236,18 @@ export default function QuestionBank() {
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {!seedDone && (
             <button className="btn btn-primary" onClick={handleSeed} disabled={seeding}>
-              {seeding ? '⏳ Seeding...' : '🌱 Seed Question Bank'}
+              {seeding ? '⏳ Seeding...' : '🌱 Seed Year 9 Questions'}
+            </button>
+          )}
+          {!seedYr8Done && (
+            <button className="btn btn-primary" onClick={async () => {
+              setSeedingYr8(true)
+              const result = await seedYear8(user)
+              setSeedingYr8(false)
+              if (!result.error) { setSeedYr8Done(true); loadAll(); showToast(`✓ Year 8: ${result.questionCount} questions seeded`) }
+              else showToast('Error seeding Year 8')
+            }} disabled={seedingYr8} style={{ background:'rgba(74,200,240,.14)', borderColor:'var(--blu)', color:'var(--blu)' }}>
+              {seedingYr8 ? '⏳ Seeding Year 8...' : '🌱 Seed Year 8 Questions'}
             </button>
           )}
           <button className="btn btn-secondary btn-sm" onClick={() => setBulkOpen(true)}
