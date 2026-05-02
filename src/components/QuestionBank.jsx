@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../lib/auth.jsx'
 import { supabase } from '../lib/supabase.js'
 import { seedAll } from '../lib/seed.js'
-import { seedYear8 } from '../lib/seed_yr8.js'
 import { seedYear7 } from '../lib/seed_yr7.js'
 import { seedYear10 } from '../lib/seed_yr10.js'
 import { VC2_CURRICULUM } from '../lib/vc2curriculum.js'
@@ -112,8 +111,9 @@ export default function QuestionBank() {
   const [loading, setLoading] = useState(true)
   const [seeding, setSeeding] = useState(false)
   const [seedDone, setSeedDone] = useState(false)
-  const [seedYr8Done, setSeedYr8Done] = useState(false)
-  const [seedingYr8, setSeedingYr8] = useState(false)
+  const [seedModal, setSeedModal] = useState(false)
+  const [seedYears, setSeedYears] = useState({ 7: false, 8: false, 9: false, 10: false })
+  const [seedProgress, setSeedProgress] = useState('')
   const [seedYr7Done, setSeedYr7Done] = useState(false)
   const [seedingYr7, setSeedingYr7] = useState(false)
   const [seedYr10Done, setSeedYr10Done] = useState(false)
@@ -141,27 +141,32 @@ export default function QuestionBank() {
     setLoading(false)
   }
 
-  async function handleSeedYr8() {
-    setSeedingYr8(true)
-    try {
-      const result = await seedYear8(user)
-      setSeedYr8Done(true)
-      showToast(`Year 8: ${result.skillCount} skills, ${result.questionCount} questions seeded`)
-    } catch(e) {
-      showToast(`Error: ${e.message}`)
-    }
-    setSeedingYr8(false)
-    loadAll()
-  }
-
   async function handleSeed() {
     setSeeding(true)
+    setSeedModal(false)
+    setSeedProgress('Starting...')
+    let totalSkills = 0, totalQs = 0
     try {
-      const result = await seedAll()
-      showToast(`✓ Seeded ${result.skillCount} skills, ${result.qCount} questions`)
-      setSeedDone(true)
+      if (seedYears[9]) {
+        setSeedProgress('Seeding Year 9...')
+        const r = await seedAll()
+        totalSkills += r.skillCount || 0; totalQs += r.qCount || 0
+      }
+      if (seedYears[7]) {
+        setSeedProgress('Seeding Year 7...')
+        const r = await seedYear7(m => setSeedProgress(m))
+        totalSkills += r.skillCount || 0; totalQs += r.questionCount || 0
+      }
+      if (seedYears[10]) {
+        setSeedProgress('Seeding Year 10...')
+        const r = await seedYear10(m => setSeedProgress(m))
+        totalSkills += r.skillCount || 0; totalQs += r.questionCount || 0
+      }
+      setSeedProgress('')
+      showToast(`✓ Done: ${totalSkills} skills, ${totalQs} questions`)
       loadAll()
     } catch (e) {
+      setSeedProgress('')
       showToast('Seed error: ' + e.message)
     }
     setSeeding(false)
@@ -218,22 +223,9 @@ export default function QuestionBank() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {!seedDone && (
-            <button className="btn btn-primary" onClick={handleSeed} disabled={seeding}>
-              {seeding ? '⏳ Seeding...' : '🌱 Seed Year 9 Questions'}
-            </button>
-          )}
-          {!seedYr8Done && (
-            <button className="btn btn-primary" onClick={async () => {
-              setSeedingYr8(true)
-              const result = await seedYear8(user)
-              setSeedingYr8(false)
-              if (!result.error) { setSeedYr8Done(true); loadAll(); showToast(`✓ Year 8: ${result.questionCount} questions seeded`) }
-              else showToast('Error seeding Year 8')
-            }} disabled={seedingYr8} style={{ background:'rgba(74,200,240,.14)', borderColor:'var(--blu)', color:'var(--blu)' }}>
-              {seedingYr8 ? '⏳ Seeding Year 8...' : '🌱 Seed Year 8 Questions'}
-            </button>
-          )}
+          <button className="btn btn-primary" onClick={() => setSeedModal(true)} disabled={seeding}>
+            {seeding ? `⏳ ${seedProgress || 'Seeding...'}` : '🌱 Seed / Re-seed Questions'}
+          </button>
           <button className="btn btn-secondary btn-sm" onClick={() => setBulkOpen(true)}
             style={{ background:'rgba(74,200,240,.08)', borderColor:'var(--blu)', color:'var(--blu)' }}>
             📥 Bulk Upload Questions
@@ -259,15 +251,21 @@ export default function QuestionBank() {
       {/* Filters */}
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {['all', ...years].map(y => (
-            <button key={y} onClick={() => { setFilterYr(String(y)); setFilterStrand('all'); setFilterTopic('all') }}
-              style={{ padding: '5px 12px', borderRadius: 100, fontSize: 11, cursor: 'pointer', border: '1px solid', transition: 'all .15s',
-                borderColor: filterYr === String(y) ? 'var(--acc)' : 'var(--b2)',
-                background: filterYr === String(y) ? 'rgba(240,228,74,.1)' : 'var(--s1)',
-                color: filterYr === String(y) ? 'var(--acc)' : 'var(--tm)' }}>
-              {y === 'all' ? 'All years' : `Yr ${y}`}
-            </button>
-          ))}
+          {['all', ...years].map(y => {
+            const yCount = y === 'all'
+              ? Object.values(questions).reduce((sum, arr) => sum + arr.length, 0)
+              : skills.filter(sk => sk.year_level == y).reduce((sum, sk) => sum + (getQs(sk.id).length), 0)
+            return (
+              <button key={y} onClick={() => { setFilterYr(String(y)); setFilterStrand('all'); setFilterTopic('all') }}
+                style={{ padding: '5px 12px', borderRadius: 100, fontSize: 11, cursor: 'pointer', border: '1px solid', transition: 'all .15s',
+                  borderColor: filterYr === String(y) ? 'var(--acc)' : 'var(--b2)',
+                  background: filterYr === String(y) ? 'rgba(240,228,74,.1)' : 'var(--s1)',
+                  color: filterYr === String(y) ? 'var(--acc)' : 'var(--tm)' }}>
+                {y === 'all' ? 'All years' : `Yr ${y}`}
+                <span style={{ marginLeft:4, opacity:0.6, fontSize:10 }}>({yCount})</span>
+              </button>
+            )
+          })}
         </div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {['all', ...strands].map(s => {
@@ -403,6 +401,44 @@ export default function QuestionBank() {
             <div className="modal-footer">
               <button className="btn btn-secondary" onClick={() => setShowAddSkill(false)}>Cancel</button>
               <button className="btn btn-primary" onClick={addSkill}>Add Skill</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Seed Year Picker Modal */}
+      {seedModal && (
+        <div onClick={() => setSeedModal(false)} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.6)', zIndex:9000, display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <div onClick={e => e.stopPropagation()} style={{ background:'var(--s2)', border:'1px solid var(--b2)', borderRadius:16, padding:'28px 32px', minWidth:320, maxWidth:420 }}>
+            <div style={{ fontFamily:'var(--font-display)', fontWeight:800, fontSize:18, marginBottom:6 }}>🌱 Seed Question Bank</div>
+            <p style={{ fontSize:12, color:'var(--td)', marginBottom:20, lineHeight:1.6 }}>
+              Select the year levels to seed. This will replace all existing questions for those years.
+            </p>
+            <div style={{ display:'flex', flexDirection:'column', gap:10, marginBottom:24 }}>
+              {[
+                { yr: 7, label: 'Year 7', desc: '895 questions · VC2M7 curriculum' },
+                { yr: 9, label: 'Year 9', desc: '1,442 questions · VC2M9 curriculum' },
+                { yr: 10, label: 'Year 10', desc: '656 questions · VC2M10 curriculum' },
+              ].map(({ yr, label, desc }) => (
+                <label key={yr} style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 14px', borderRadius:10, cursor:'pointer',
+                  border:`1px solid ${seedYears[yr] ? 'var(--acc)' : 'var(--b2)'}`,
+                  background: seedYears[yr] ? 'rgba(240,228,74,.08)' : 'var(--s1)',
+                  transition:'all .15s' }}>
+                  <input type="checkbox" checked={seedYears[yr]} onChange={e => setSeedYears(prev => ({ ...prev, [yr]: e.target.checked }))}
+                    style={{ width:16, height:16, accentColor:'var(--acc)', cursor:'pointer' }} />
+                  <div>
+                    <div style={{ fontWeight:700, fontSize:13, color:'var(--tx)' }}>{label}</div>
+                    <div style={{ fontSize:11, color:'var(--td)' }}>{desc}</div>
+                  </div>
+                </label>
+              ))}
+            </div>
+            <div style={{ display:'flex', gap:10, justifyContent:'flex-end' }}>
+              <button className="btn btn-secondary" onClick={() => setSeedModal(false)}>Cancel</button>
+              <button className="btn btn-primary" onClick={handleSeed}
+                disabled={!Object.values(seedYears).some(Boolean)}>
+                🌱 Seed Selected
+              </button>
             </div>
           </div>
         </div>
