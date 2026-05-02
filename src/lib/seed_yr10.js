@@ -432,7 +432,7 @@ const SKILLS_YR10 = [
       {tier:2, q:'P(A∩B) = 0.12, P(B) = 0.4. Find P(A|B).', a:'P(A|B) = 0.12/0.4 = 0.3'},
       {tier:2, q:'A bag has 5 red and 3 blue balls. One is drawn red. Find P(red second | red first) without replacement.', a:'4/7'},
       {tier:3, q:'60% of students play sport. 30% play sport and do music. Find P(music | sport).', a:'P(M|S) = 0.30/0.60 = 0.5'},
-      {tier:3, q:'P(A) = 0.4, P(B|A) = 0.3, P(B|A\') = 0.2. Find P(B).', a:'P(B) = 0.4×0.3 + 0.6×0.2 = 0.12+0.12 = 0.24'},
+      {tier:3, q:'P(A) = 0.4, P(B|A) = 0.3, P(B|A\’) = 0.2. Find P(B).', a:'P(B) = 0.4×0.3 + 0.6×0.2 = 0.12+0.12 = 0.24'},
       {tier:4, q:'Prove that if A and B are independent, P(A|B) = P(A).', a:'P(A|B) = P(A∩B)/P(B). If independent: P(A∩B) = P(A)×P(B). So P(A|B) = P(A)×P(B)/P(B) = P(A) ✓'},
     ]
   },
@@ -443,7 +443,7 @@ const SKILLS_YR10 = [
       {tier:2, q:'From above: Find P(plays tennis only).', a:'(30−10)/60 = 20/60 = 1/3'},
       {tier:2, q:'P(A) = 0.5, P(B) = 0.4, P(A∩B) = 0.2. Find P(A∪B).', a:'0.5 + 0.4 − 0.2 = 0.7'},
       {tier:3, q:'Are A and B independent if P(A)=0.5, P(B)=0.4, P(A∩B)=0.2?', a:'P(A)×P(B) = 0.2 = P(A∩B) ✓ Yes, independent'},
-      {tier:4, q:'A disease affects 1% of population. Test is 95% accurate for positives and 90% accurate for negatives. If you test positive, what is P(you have the disease)?', a:'P(D)=0.01; P(+|D)=0.95; P(+|D\')=0.10. P(+)=0.01×0.95+0.99×0.10=0.1085. P(D|+)=0.0095/0.1085≈8.8%'},
+      {tier:4, q:'A disease affects 1% of population. Test is 95% accurate for positives and 90% accurate for negatives. If you test positive, what is P(you have the disease)?', a:'P(D)=0.01; P(+|D)=0.95; P(+|D\’)=0.10. P(+)=0.01×0.95+0.99×0.10=0.1085. P(D|+)=0.0095/0.1085≈8.8%'},
     ]
   },
 
@@ -911,7 +911,7 @@ const SKILLS_YR10 = [
       {tier:1, q:'Compound interest formula?', a:'A = P(1+r/100)ⁿ'},
       {tier:1, q:'Depreciation formula (reducing balance)?', a:'V = P(1−r/100)ⁿ'},
       {tier:1, q:'What does APR stand for?', a:'Annual Percentage Rate'},
-      {tier:4, q:'A pensioner receives $30 000/year. If inflation averages 2.5%pa for 20 years, find the equivalent purchasing power in today's dollars.', a:'Real value = 30000/1.025²⁰ ≈ $18 350'},
+      {tier:4, q:'A pensioner receives $30 000/year. If inflation averages 2.5%pa for 20 years, find the equivalent purchasing power in today\’s dollars.', a:'Real value = 30000/1.025²⁰ ≈ $18 350'},
     ]
   },
 
@@ -963,7 +963,7 @@ const SKILLS_YR10 = [
       {tier:2, q:'Simplify: 2x/3 + 4/9', a:'(6x + 4)/9'},
       {tier:2, q:'Simplify: (x + 2)/3 − (x − 4)/5', a:'(5(x+2) − 3(x−4))/15 = (2x+22)/15'},
       {tier:3, q:'Solve: (2x+1)/5 + (x−3)/10 = 2', a:'2(2x+1) + (x−3) = 20; 5x − 1 = 20; x = 21/5'},
-      {tier:3, q:'Marie's watering can has 2 L and leaks at 0.4 L/min. How long until all water leaks out?', a:'t = 2/0.4 = 5 minutes'},
+      {tier:3, q:'Marie\’s watering can has 2 L and leaks at 0.4 L/min. How long until all water leaks out?', a:'t = 2/0.4 = 5 minutes'},
       {tier:4, q:'Solve: (4−x)/6 − (x+2)/4 = 1', a:'2(4−x) − 3(x+2) = 12; 8−2x−3x−6=12; −5x=10; x=−2'},
     ]
   },
@@ -1148,7 +1148,7 @@ const SKILLS_YR10 = [
       {tier:1, q:'A letter from INTEREST is chosen. Find P(vowel).', a:'P(I,E,E) wait: I,N,T,E,R,E,S,T → vowels: I,E,E = 3/8'},
       {tier:1, q:'A letter from INTEREST is chosen. Find P(not a vowel).', a:'5/8'},
       {tier:2, q:'P(A)=0.25, P(B)=0.35, P(A∪B)=0.5. Find P(A∩B).', a:'0.25+0.35−0.5=0.10'},
-      {tier:2, q:'P(A)=0.25, P(B)=0.35, P(A∪B)=0.5. Find P(A'∩B').', a:'1−P(A∪B)=0.5'},
+      {tier:2, q:'P(A)=0.25, P(B)=0.35, P(A∪B)=0.5. Find P(A\’∩B\’).', a:'1−P(A∪B)=0.5'},
       {tier:3, q:'Of 36 people, 18 like cars, 11 like homewares, 6 like both. How many like neither?', a:'36−(18+11−6)=36−23=13'},
       {tier:3, q:'All 26 birds: 18 have tags, 14 have clipped wings, both=x. Find x.', a:'18+14−x=26; x=6'},
       {tier:3, q:'P(A)=0.4, P(B)=0.3, A and B independent. Find P(A∩B).', a:'0.4×0.3=0.12'},
