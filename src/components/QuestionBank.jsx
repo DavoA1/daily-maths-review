@@ -258,9 +258,8 @@ export default function QuestionBank() {
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {['all', ...years].map(y => {
-            const yCount = y === 'all'
-              ? Object.values(questions).reduce((sum, arr) => sum + arr.length, 0)
-              : skills.filter(sk => sk.year_level == y).reduce((sum, sk) => sum + (getQs(sk.id).length), 0)
+            const ySkills = y === 'all' ? skills : skills.filter(sk => sk.year_level == y)
+            const yCount = ySkills.reduce((sum, sk) => sum + getQs(sk.id).length, 0)
             return (
               <button key={y} onClick={() => { setFilterYr(String(y)); setFilterStrand('all'); setFilterTopic('all') }}
                 style={{ padding: '5px 12px', borderRadius: 100, fontSize: 11, cursor: 'pointer', border: '1px solid', transition: 'all .15s',
